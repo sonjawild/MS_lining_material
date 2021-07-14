@@ -368,6 +368,7 @@ ILVs.sub <- subset(
 )
 
 
+
 # 5.5. Add the females who only visited the dispenser ---------------------
 
 # some females have visited the dispenser, but did not breed in any of the nest boxes
@@ -1162,6 +1163,212 @@ prop.solve.social.lower.dial
 
 
 # 7) Wool choice ----------------------------------------------------------
+
+
+wool.choice <- read.delim("C:/Users/swild/Desktop/Konstanz/Lining material - social learning/Raw data/Wool_boxes.txt", sep="\t")
+
+start.colours <- rbind.data.frame(cbind("D1", "Pi"),
+cbind("D2", "Pu"),
+cbind("D3", "O"),
+cbind("D4", "B"),
+cbind("D5", "Pi"))
+
+colnames(start.colours) <- c("dispenser", "start.colour")
+
+# extract those that accessed the dispenser before the second colour was made available 
+demos <- c("B07",
+           "C08",
+           "D03",
+           "H08",
+           "H24",
+           "S16",
+           "T01",
+           "V02")
+
+
+wool.choice.learners <- subset(wool.choice, !(wool.choice$Box%in% demos))
+
+# extract which dispenser was closest 
+for(i in wool.choice.learners$Box){
+  closest.disp <- subset(ILVs$Closest.dispenser, ILVs$Box==i)
+  wool.choice.learners[which(wool.choice.learners$Box==i), "dispenser"] <- closest.disp 
+}
+
+for(i in wool.choice.learners$dispenser){
+  col <- subset(start.colours$start.colour, start.colours$dispenser==i)
+  wool.choice.learners[which(wool.choice.learners$dispenser==i), "start.col"] <- col
+}
+
+
+# Fishers test
+fisher <- fisher.test(table(learners$provided_color, learners$first_col), alternative = "greater")
+
+
+fisher <- fisher.test(wool.choice.learners$first_color, wool.choice.learners$start.col, alternative = "greater")
+fisher
+
+# Fisher's Exact Test for Count Data
+# 
+# data:  wool.choice.learners$first_color and wool.choice.learners$start.col
+# p-value = 0.02498
+# alternative hypothesis: greater
+
+
+# 8) Visualization --------------------------------------------------------
+
+# create a network with polgygons around dispenser areas
+
+library(igraph)
+
+# for each PIT tag, extract whether it was seen at a network feeder
+which.disp.plot <- NULL
+
+for(i in rownames(foraging.network.NBDA)){
+  disp <- unique(subset(ILVs.combined$Closest.dispenser, ILVs.combined$PIT_f==i))
+  which.disp.plot[which(rownames(foraging.network.NBDA)==i)] <- disp
+}
+
+which.disp.plot[which.disp.plot=="D1"] <- "#7A7978"
+which.disp.plot[which.disp.plot=="D2"] <- "#87CBAC"
+which.disp.plot[which.disp.plot=="D3"] <- "#90FFDC"
+which.disp.plot[which.disp.plot=="D4"] <- "#8DE4FF"
+which.disp.plot[which.disp.plot=="D5"] <- "#8AC4FF"
+
+length(rownames(foraging.network.NBDA))
+
+g.net <- graph_from_adjacency_matrix(foraging.network.NBDA, mode = "undirected",
+                                     weighted = TRUE, diag = FALSE)
+
+E(g.net)$width <- E(g.net)$weight
+
+V(g.net)$colour <- which.disp.plot
+l <- layout_with_fr(g.net )
+l <- layout_in_circle(g.net )
+
+plot( g.net,
+      vertex.size = 5,
+      edge.curved = 0.2,
+      edge.color =  "darkgrey",
+      vertex.color = V(g.net)$coSlour,
+      vertex.label = NA,
+      vertex.frame.colour = "black",
+      edge.width = E(g.net)$width*10,
+      frame = TRUE,
+      layout=l,
+      asp = 1,
+      rescale = TRUE
+)
+
+
+
+plot.network <- function(net, demos, learners.list, experiment, n, solves, diffusion, position, simple.list){
+  # create a colour vector that distinguishes between learners.list, naive birds and demonstrators
+  cat.all <- NULL
+  for (i in rownames(net)){
+    if(i %in% demos){
+      cat <- "#F0DC6A"
+    } else if(i %in% simple.list){
+      cat <- "#33CCCC"  # blue for simple learners
+    } else if (i %in% learners.list$RING){
+      cat <- "#660099"  # purple for complex learners
+    } 
+    else {cat <- "#FFFFFF"} #white for non-learners
+    cat.all[which(rownames(net)==i)] <- cat    
+  }
+  
+  # create graph object
+  g.net <- graph_from_adjacency_matrix(net, mode = "undirected",
+                                       weighted = TRUE, diag = FALSE)
+  V(g.net)$colour <- cat.all
+  
+  E(g.net)$width <- E(g.net)$weight
+  E(g.net)$edge.color <- "gray50"
+  # remove edge weights below 0.005
+  g.net <- delete_edges(g.net, E(g.net)[weight<0.05])
+  # layout fruchtermann reingold
+  l <- layout_with_fr(g.net )
+  title <-  paste(experiment, paste("(N=", n, ")", sep =
+                                      ""), sep = " ")
+  
+  
+  plot( g.net,
+        vertex.size = 6,
+        edge.curved = 0.2,
+        edge.color =  E(g.net)$edge.color,
+        vertex.color = V(g.net)$colour,
+        vertex.label = NA,
+        vertex.frame.colour = "black",
+        edge.width = E(g.net)$width*10,
+        frame = TRUE,
+        layout=l,
+        #   main= title,
+        adj = c(0,-1),
+        margin=c(0.02,0.0,0.0,0.0),
+        asp = 1,
+        rescale = TRUE
+  )
+  
+  title(title, line=0.5, adj=0.0, cex.main=1.5, font =1, family = "sans")
+  if(position!="none"){
+    legend(x=-1.15, y=-0.7, c("naive","simple", "demonstrator", "complex"), pch=21,
+           
+           col="#777777", pt.bg=c("#FFFFFF", "#33CCCC", "#F0DC6A", "#660099"), pt.cex=1.5, cex=1.2, bty="n", ncol=1, 
+           y.intersp=0.8)
+  }
+  
+  
+}
+set.seed(10)
+
+png( "networks.png", units="in", width=12, height=4, res=400)
+par(mfrow=c(1,3), mai = c(0.0, 0.0, 0.2, 0.07))
+
+
+p1 <-
+  plot.network(
+    net = dial.net,
+    demos = demos.dial,
+    learners.list = learners.list.dial,
+    n = BB_NBDA_DATA$num.birds,
+    experiment = "A) Dial diffusion",
+    solves = "dial",
+    diffusion = "dial_diffusion",
+    position = "left",
+    simple.list = learners.list.dial$RING
+  )
+
+
+p2 <-
+  plot.network(
+    net = complex1st.net,
+    demos = NA,
+    learners.list = learners.list.complex1st,
+    n = BB_complex_progressive$num.birds,
+    experiment = "B) Complex 1st generation",
+    solves = "complex",
+    diffusion = "complex_prog",
+    position = "none", 
+    simple.list = learners.complex1st.simple
+  )
+
+p3 <-
+  plot.network(
+    net = complex2nd.net,
+    demos = demos.complex2nd,
+    learners.list = learners.list.complex2nd,
+    n = BB_complex_next_gen$num.birds,
+    experiment = "C) Complex 2nd generation",
+    solves = "complex",
+    diffusion = "nextgen",
+    position = "none",
+    simple.list = learners.complex2nd.simple
+  )
+
+
+dev.off()
+
+
+
 
 
 
