@@ -493,13 +493,17 @@ max(distances.all)
 
 # subset ILVs to those that are within a maximum of 200m of one of the dispensers
 ILVs.combined$closest.dispenser <- NA
+colnames(closest_disp) <- c("closest_disp", "distance_to_closest_disp")
+
 for(i in ILVs.combined$Box[ILVs.combined$Box!="no_box"]){
-  dist <- subset(closest_disp$`Distance to dispenser`, rownames(closest_disp)==i)
+  dist <- subset(closest_disp$distance_to_closest_disp, rownames(closest_disp)==i)
   ILVs.combined[which(ILVs.combined$Box==i), "closest.dispenser"] <- dist
   
 }
+head(ILVs.combined)
 tail(ILVs.combined)
 ILVs.combined <- subset(ILVs.combined, ILVs.combined$closest.dispenser<=200 | is.na(ILVs.combined$closest.dispenser))
+
 # 6. NBDA - social information to use to find lining material -----------------------------------------------------------------
 
 #install.packages("devtools")
@@ -558,20 +562,18 @@ library(vegan)
 # mantel(xdis = neighbour_matrix.NBDA.new, ydis = foraging.network.NBDA,      permutations = 9999) 
 # 
 # Mantel statistic r: 0.05238 
-#       Significance: 0.0709 
+#       Significance: 0.0651 
 # 
 # Upper quantiles of permutations (null model):
 #    90%    95%  97.5%    99% 
-# 0.0425 0.0617 0.0778 0.0974 
+# 0.0404 0.0595 0.0758 0.0980 
 # Permutation: free
 # Number of permutations: 9999
-
-# ILVs.combined <- subset(ILVs.combined, ILVs.combined$Box!="no_box")
 
 
 # 6.3. Prepare ILVs ------------------------------------------------------------------
 
-prepare.NBDA.data <- function(dispenser.data, include.all){
+prepare.NBDA.data <- function(dispenser.data, include.all, ILVs.include){
   dispenser.data <- dispenser.data[order(dispenser.data$date.time),] # ensure it is sorted according to date
   location <- unique(dispenser.data$Location)
   # if(include.all == TRUE){ # here, we include all individuals (including those that were only seen at the dispensers)
@@ -588,16 +590,16 @@ prepare.NBDA.data <- function(dispenser.data, include.all){
   
   if(include.all==TRUE){
     IDs.included <- IDs.to.include.in.NBDA
-    ILVs.sub.disp <- ILVs.combined
+
     
   } else if(include.all ==FALSE){
     IDs.included <- subset(ILVs.combined$PIT_f, ILVs.combined$Box!="no_box" & ILVs.combined$PIT_f %in% IDs.to.include.in.NBDA)
-    ILVs.sub.disp <- subset(ILVs.combined, ILVs.combined$PIT_f %in% IDs.included)
+
 
   }
-  
+  # we remove boxes D04, R06, G33 (females breeding in two boxes - we retaiend the ones closer to the dispenser)
+  ILVs.sub.disp <- subset(ILVs.combined, ILVs.combined$PIT_f %in% IDs.included & !(ILVs.combined$Box %in% c("D04", "R06", "G33")))
 
-  
   dispenser.data <- subset(dispenser.data, dispenser.data$PIT %in% IDs.to.include.in.NBDA)
   
   # order data ascending
@@ -638,12 +640,16 @@ prepare.NBDA.data <- function(dispenser.data, include.all){
   assign(paste("species", location, sep="_"), species.nbda, envir = .GlobalEnv)
   assign(paste("age", location, sep="_"), age.nbda, envir = .GlobalEnv)
   assign(paste("distance", location, sep="_"), distance.nbda, envir = .GlobalEnv)
-#  assign(paste("prev.exp", location, sep="_"), prev.exp.nbda, envir = .GlobalEnv)
+  assign(paste("prev.exp", location, sep="_"), prev.exp.nbda, envir = .GlobalEnv)
   
-#  ILVs <- paste(c("prev.exp"), location, sep="_")
-  ILVs <- paste(c("species", "age", "distance"), location, sep="_")
+ # ILVs <- paste(c("prev.exp"), location, sep="_")
+#  ILVs <- paste(c("species", "age", "distance"), location, sep="_")
+#  ILVs <- paste(c("species", "distance"), location, sep="_")
+#  ILVs <- paste(c("species", "distance", "prev.exp"), location, sep="_")
 #  ILVs <- paste(c("distance"), location, sep="_")
  # ILVs <- paste(c("species", "distance"), location, sep="_")
+  ILVs <- paste(ILVs.include, location, sep="_")
+#  ILVs <- paste(c("age"), location, sep="_")
   assign(paste("ILVs", location, sep="_"), ILVs, envir = .GlobalEnv)
   
   # extract the order of finding
@@ -668,7 +674,19 @@ prepare.NBDA.data <- function(dispenser.data, include.all){
   object$transmission.weights <- rep(0, length(rownames(forage.net)))
   object$transmission.weights[order] <- num.visits
   
-  return(object)
+
+  
+  object2 <- nbdaData(label=location,                        
+           assMatrix=object$assMatrix,          
+           asoc_ilv=get(paste("ILVs", location, sep="_")),            
+           int_ilv=get(paste("ILVs", location, sep="_")),            
+           multi_ilv="ILVabsent",        
+           orderAcq=object$OAc,          
+           timeAcq=object$TAc,           
+           endTime=41
+  )
+  
+  return(object2)
 }
 
 
@@ -676,66 +694,18 @@ prepare.NBDA.data <- function(dispenser.data, include.all){
 
  
 # we first prepare NBDA data objects including all females (those breeding in boxes + the ones who have visited the dispenser) 
-d1.NBDA.all <- prepare.NBDA.data(dispenser.data = dispenser.data.1, include.all = TRUE)
-d2.NBDA.all <- prepare.NBDA.data(dispenser.data = dispenser.data.2, include.all = TRUE)
-d3.NBDA.all <- prepare.NBDA.data(dispenser.data = dispenser.data.3, include.all = TRUE)
-d4.NBDA.all <- prepare.NBDA.data(dispenser.data = dispenser.data.4, include.all = TRUE)
-d5.NBDA.all <- prepare.NBDA.data(dispenser.data = dispenser.data.5, include.all = TRUE)
+nbdaData_D1.all <- prepare.NBDA.data(dispenser.data = dispenser.data.1, include.all = TRUE, ILVs.include = c("age", "species", "distance", "prev.exp"))
+nbdaData_D2.all <- prepare.NBDA.data(dispenser.data = dispenser.data.2, include.all = TRUE, ILVs.include = c("age", "species", "distance", "prev.exp"))
+nbdaData_D3.all <- prepare.NBDA.data(dispenser.data = dispenser.data.3, include.all = TRUE, ILVs.include = c("age", "species", "distance", "prev.exp"))
+# nbdaData_D4.all <- prepare.NBDA.data(dispenser.data = dispenser.data.4, include.all = TRUE, ILVs.include = c("age", "species", "distance", "prev.exp"))
+nbdaData_D5.all <- prepare.NBDA.data(dispenser.data = dispenser.data.5, include.all = TRUE, ILVs.include = c("age", "species", "distance", "prev.exp"))
 
 # number of learners:
 # D1: 5
 # D2: 7
 # D3: 5
-# D4: 1
+# D4: only one learner - function will not work
 # D5: 4
-
-nbdaData_D1.all <- nbdaData(label="D1",                        # specify an informative label
-                            assMatrix=d1.NBDA.all$assMatrix,           # our array with the matrices
-                            asoc_ilv=get(paste("ILVs", "D1", sep="_")),            # we specify that ILVs can influence asocial learning, if no ILV: "ILVabsent"
-                            int_ilv=get(paste("ILVs", "D1", sep="_")),             # we specify that our ILVs can influence social learning, if no ILV: "ILVabsent" 
-                            multi_ilv="ILVabsent",        # we specify that our ILVs can influence asocial and social learning to the same extent, if no ILV: "ILVabsent" 
-                            orderAcq=d1.NBDA.all$OAc,          # vector with the order of acquisition 
-                            timeAcq=d1.NBDA.all$TAc,           # numerical vector giving the time at which each individual acquired the target behaviour, given in the order matching orderAcqv
-                            endTime=41                    # numeric giving the time at which the diffusion ended. (11th of May = day 40)
-                            )
-
-nbdaData_D2.all <- nbdaData(label="D2",                        
-                        assMatrix=d2.NBDA.all$assMatrix,          
-                        asoc_ilv=get(paste("ILVs", "D2", sep="_")),            
-                        int_ilv=get(paste("ILVs", "D2", sep="_")),            
-                        multi_ilv="ILVabsent",        
-                        orderAcq=d2.NBDA.all$OAc,          
-                        timeAcq=d2.NBDA.all$TAc,           
-                        endTime=41
-)
-
-
-nbdaData_D3.all <- nbdaData(label="D3",                        
-                        assMatrix=d3.NBDA.all$assMatrix,          
-                        asoc_ilv=get(paste("ILVs", "D3", sep="_")),            
-                        int_ilv=get(paste("ILVs", "D3", sep="_")),            
-                        multi_ilv="ILVabsent",        
-                        orderAcq=d3.NBDA.all$OAc,          
-                        timeAcq=d3.NBDA.all$TAc,           
-                        endTime=41
-)
-
-
-
-# skip 4
-
-nbdaData_D5.all <- nbdaData(label="D5",                        
-                        assMatrix=d5.NBDA.all$assMatrix,          
-                        asoc_ilv=get(paste("ILVs", "D5", sep="_")),            
-                        int_ilv=get(paste("ILVs", "D5", sep="_")),            
-                        multi_ilv="ILVabsent",        
-                        orderAcq=d5.NBDA.all$OAc,          
-                        timeAcq=d5.NBDA.all$TAc,           
-                        endTime=41
-)
-
-# create function for making constraintsVectorMatrix
-
 
 
 # 6.5. Create constraints Vector MAtrix ---------------------------------
@@ -884,7 +854,7 @@ create.constraints.Vect.Matrix <- function(NBDA_data_object, num_networks, num_I
 }
 
 # it does not matter which NBDA data object we choose - the matrix is the same for all
-constraintsVectMatrix <- create.constraints.Vect.Matrix(NBDA_data_object = nbdaData_D2.all, num_networks = 2, num_ILVs = 3)
+constraintsVectMatrix <- create.constraints.Vect.Matrix(NBDA_data_object = nbdaData_D2.all, num_networks = 2, num_ILVs = 4)
 
 
 # 6.6. Run TADA on all females  --------------------------------------------------------------------
@@ -900,31 +870,213 @@ TADA.finding.all <-
     writeProgressFile = F
 )
     
+print(TADA.finding.all@printTable)
+networksSupport(TADA.finding.all)
+variableSupport(TADA.finding.all)
 
-# view the results with 'print'
-print(TADA.finding.all@printTable) # with all females, 3 ILVs
+# we can see from the AIC table and the variable support that the models struggle to converge and the output is pretty much 'nonsense'
+# it appears that certain combinations of ILVs cause troubles.
+# We run TADA with each ILV alone to determine to then only include the ones that appear important for model fitting
 
-# network support
-networksSupport <- networksSupport(TADA.finding.all)
-round(networksSupport, 2)
+# we prepare a new constraintsVectMatrix with only one ILV
+constraintsVectMatrix <- create.constraints.Vect.Matrix(NBDA_data_object = nbdaData_D2.age, num_networks = 2, num_ILVs = 1)
 
-# variable support
-variable_support <- variableSupport(TADA.finding.all, includeAsocial = T)
-round(variable_support,3)
+# run TADA with just 'age'
+# prepare NBDA data objects
+nbdaData_D1.age <- prepare.NBDA.data(dispenser.data = dispenser.data.1, include.all = TRUE, ILVs.include = c("age"))
+nbdaData_D2.age <- prepare.NBDA.data(dispenser.data = dispenser.data.2, include.all = TRUE, ILVs.include = c("age"))
+nbdaData_D3.age <- prepare.NBDA.data(dispenser.data = dispenser.data.3, include.all = TRUE, ILVs.include = c("age"))
+# nbdaData_D4.age <- prepare.NBDA.data(dispenser.data = dispenser.data.4, include.all = TRUE, ILVs.include = c("age"))
+nbdaData_D5.age <- prepare.NBDA.data(dispenser.data = dispenser.data.5, include.all = TRUE, ILVs.include = c("age"))
+
+# run TADA
+TADA.finding.age <-
+  tadaAICtable(
+    nbdadata = list(
+      nbdaData_D1.age,
+      nbdaData_D2.age,
+      nbdaData_D3.age,
+      nbdaData_D5.age),
+    constraintsVectMatrix = constraintsVectMatrix, 
+    writeProgressFile = F
+  )
+
+print(TADA.finding.age@printTable)
+variableSupport(TADA.finding.age)
+# s1        s2 ASOC:age_D1 SOCIAL:age_D1
+# support 0.9999818 0.1898923   0.1936806     0.2721888
+# we have evidence for an influence of age on social or asocial learning (all support <0.5)
+
+
+# run TADA with just 'species'
+# prepare NBDA data objects
+nbdaData_D1.species <- prepare.NBDA.data(dispenser.data = dispenser.data.1, include.all = TRUE, ILVs.include = c("species"))
+nbdaData_D2.species <- prepare.NBDA.data(dispenser.data = dispenser.data.2, include.all = TRUE, ILVs.include = c("species"))
+nbdaData_D3.species <- prepare.NBDA.data(dispenser.data = dispenser.data.3, include.all = TRUE, ILVs.include = c("species"))
+# nbdaData_D4.species <- prepare.NBDA.data(dispenser.data = dispenser.data.4, include.all = TRUE, ILVs.include = c("species"))
+nbdaData_D5.species <- prepare.NBDA.data(dispenser.data = dispenser.data.5, include.all = TRUE, ILVs.include = c("species"))
+
+# run TADA
+TADA.finding.species <-
+  tadaAICtable(
+    nbdadata = list(
+      nbdaData_D1.species,
+      nbdaData_D2.species,
+      nbdaData_D3.species,
+      nbdaData_D5.species),
+    constraintsVectMatrix = constraintsVectMatrix, 
+    writeProgressFile = F
+  )
+
+print(TADA.finding.species@printTable)
+variableSupport(TADA.finding.species)
+# s1        s2 ASOC:species_D1 SOCIAL:species_D1
+# support 0.9999799 0.1917265       0.2046157         0.1923134
+# we also have no evidence for species influencing social or asocial learning rate
+
+
+# run TADA with just 'distance'
+# prepare NBDA data objects
+nbdaData_D1.distance <- prepare.NBDA.data(dispenser.data = dispenser.data.1, include.all = TRUE, ILVs.include = c("distance"))
+nbdaData_D2.distance <- prepare.NBDA.data(dispenser.data = dispenser.data.2, include.all = TRUE, ILVs.include = c("distance"))
+nbdaData_D3.distance <- prepare.NBDA.data(dispenser.data = dispenser.data.3, include.all = TRUE, ILVs.include = c("distance"))
+# nbdaData_D4.distance <- prepare.NBDA.data(dispenser.data = dispenser.data.4, include.all = TRUE, ILVs.include = c("distance"))
+nbdaData_D5.distance <- prepare.NBDA.data(dispenser.data = dispenser.data.5, include.all = TRUE, ILVs.include = c("distance"))
+
+# run TADA
+TADA.finding.distance <-
+  tadaAICtable(
+    nbdadata = list(
+      nbdaData_D1.distance,
+      nbdaData_D2.distance,
+      nbdaData_D3.distance,
+      nbdaData_D5.distance),
+    constraintsVectMatrix = constraintsVectMatrix, 
+    writeProgressFile = F
+  )
+
+print(TADA.finding.distance@printTable)
+variableSupport(TADA.finding.distance)
+# s1        s2 ASOC:distance_D1 SOCIAL:distance_D1
+# support 0.9958509 0.1579205        0.9979706          0.6569978
+# we support for distance influencing both social and asocial learning rate (both AIC > 0.5)
+
+# run TADA with just 'prev.exp'
+# prepare NBDA data objects
+nbdaData_D1.prev.exp <- prepare.NBDA.data(dispenser.data = dispenser.data.1, include.all = TRUE, ILVs.include = c("prev.exp"))
+nbdaData_D2.prev.exp <- prepare.NBDA.data(dispenser.data = dispenser.data.2, include.all = TRUE, ILVs.include = c("prev.exp"))
+nbdaData_D3.prev.exp <- prepare.NBDA.data(dispenser.data = dispenser.data.3, include.all = TRUE, ILVs.include = c("prev.exp"))
+# nbdaData_D4.prev.exp <- prepare.NBDA.data(dispenser.data = dispenser.data.4, include.all = TRUE, ILVs.include = c("prev.exp"))
+nbdaData_D5.prev.exp <- prepare.NBDA.data(dispenser.data = dispenser.data.5, include.all = TRUE, ILVs.include = c("prev.exp"))
+
+# run TADA
+TADA.finding.prev.exp <-
+  tadaAICtable(
+    nbdadata = list(
+      nbdaData_D1.prev.exp,
+      nbdaData_D2.prev.exp,
+      nbdaData_D3.prev.exp,
+      nbdaData_D5.prev.exp),
+    constraintsVectMatrix = constraintsVectMatrix, 
+    writeProgressFile = F
+  )
+
+print(TADA.finding.prev.exp@printTable)
+variableSupport(TADA.finding.prev.exp)
+# s1        s2 ASOC:prev.exp_D1 SOCIAL:prev.exp_D1
+# support 0.9999871 0.1848491         0.244346          0.4118598
+# no evidence for previous experience influencing social or asocial learning rate
+
+
+# run TADA with age, species and distance
+
+nbdaData_D1.3.ILVs <- prepare.NBDA.data(dispenser.data = dispenser.data.1, include.all = TRUE, ILVs.include = c("age", "species", "distance"))
+nbdaData_D2.3.ILVs <- prepare.NBDA.data(dispenser.data = dispenser.data.2, include.all = TRUE, ILVs.include = c("age", "species", "distance"))
+nbdaData_D3.3.ILVs <- prepare.NBDA.data(dispenser.data = dispenser.data.3, include.all = TRUE, ILVs.include = c("age", "species", "distance"))
+# nbdaData_D4.3.ILVs <- prepare.NBDA.data(dispenser.data = dispenser.data.4, include.all = TRUE, ILVs.include = c("age", "species", "distance"))
+nbdaData_D5.3.ILVs <- prepare.NBDA.data(dispenser.data = dispenser.data.5, include.all = TRUE, ILVs.include = c("age", "species", "distance"))
+
+constraintsVectMatrix <- create.constraints.Vect.Matrix(NBDA_data_object = nbdaData_D2.3.ILVs, num_networks = 2, num_ILVs = 3)
+
+# run TADA
+TADA.finding.3.ILVs <-
+  tadaAICtable(
+    nbdadata = list(
+      nbdaData_D1.3.ILVs,
+      nbdaData_D2.3.ILVs,
+      nbdaData_D3.3.ILVs,
+      nbdaData_D5.3.ILVs),
+    constraintsVectMatrix = constraintsVectMatrix, 
+    writeProgressFile = F
+  )
+
+print(TADA.finding.3.ILVs@printTable)
+variableSupport(TADA.finding.3.ILVs)
+# again, troubles converting
+
+# we run it with just distance and species
+nbdaData_D1.2.ILVs <- prepare.NBDA.data(dispenser.data = dispenser.data.1, include.all = TRUE, ILVs.include = c("species", "distance"))
+nbdaData_D2.2.ILVs <- prepare.NBDA.data(dispenser.data = dispenser.data.2, include.all = TRUE, ILVs.include = c("species", "distance"))
+nbdaData_D3.2.ILVs <- prepare.NBDA.data(dispenser.data = dispenser.data.3, include.all = TRUE, ILVs.include = c("species", "distance"))
+# nbdaData_D4.2.ILVs <- prepare.NBDA.data(dispenser.data = dispenser.data.4, include.all = TRUE, ILVs.include = c("species", "distance"))
+nbdaData_D5.2.ILVs <- prepare.NBDA.data(dispenser.data = dispenser.data.5, include.all = TRUE, ILVs.include = c("species", "distance"))
+
+constraintsVectMatrix <- create.constraints.Vect.Matrix(NBDA_data_object = nbdaData_D2.2.ILVs, num_networks = 2, num_ILVs = 2)
+
+# run TADA
+TADA.finding.2.ILVs <-
+  tadaAICtable(
+    nbdadata = list(
+      nbdaData_D1.2.ILVs,
+      nbdaData_D2.2.ILVs,
+      nbdaData_D3.2.ILVs,
+      nbdaData_D5.2.ILVs),
+    constraintsVectMatrix = constraintsVectMatrix, 
+    writeProgressFile = F
+  )
+
+print(TADA.finding.2.ILVs@printTable)
+networksSupport(TADA.finding.2.ILVs)
+# support numberOfModels
+# 0:0 0.005163674              4
+# 0:1 0.001749869             16
+# 1:0 0.848641864             16
+# 1:2 0.144444593             16
+
+# most evidential support for transmission along the foraging network (0.85), 
+# followed by transmission through both the neighbour and the foraging network (0.15)
+# asocial models and transmission through the neighbour network alone get very little support (<0.005)
+
+variableSupport(TADA.finding.2.ILVs)
+#             s1        s2       ASOC:species_D1   ASOC:distance_D1  SOCIAL:species_D1 SOCIAL:distance_D1
+# support 0.9930865 0.1461945       0.2166048        0.9983375         0.1473031          0.7179743
+
+# support for distance influencing both asocial (0.99) and social learning rate (0.63)
+# no evidence for species influencing social or asocial learning rate (both <0.5)
 
 # model averaged estimates
-MLE_med  <- modelAverageEstimates(TADA.finding.all , averageType = "median")
-round(MLE_med,2)
+modelAverageEstimates(TADA.finding.2.ILVs , averageType = "median")
+#    s1                 s2          ASOCIALspecies_D1  ASOCIALdistance_D1   SOCIALspecies_D1  SOCIALdistance_D1 
+# 26.110377           0.000000           0.000000          -2.258964           0.000000          -1.472468 
 
 
 # 6.7. Extract effect sizes ------------------------------------------------
 
-bestModelData1 <- constrainedNBDAdata(nbdadata=nbdaData_D1.all,constraintsVect =constraintsVectMatrix[160,])
-bestModelData2 <- constrainedNBDAdata(nbdadata=nbdaData_D2.all,constraintsVect =constraintsVectMatrix[160,])
-bestModelData3 <- constrainedNBDAdata(nbdadata=nbdaData_D3.all,constraintsVect =constraintsVectMatrix[160,])
-bestModelData5 <- constrainedNBDAdata(nbdadata=nbdaData_D5.all,constraintsVect =constraintsVectMatrix[160,])
+# the best model is model 29 (top model in AIC table)
+constraintsVectMatrix[29,]
+# network network    asoc    asoc     int     int 
+# 1       0       0       2       0       3 
+
+# it contains the foraging network and distance influencing both asocial and social learning rate
+
+# we create constrained NBDA Data Objects for that specific model
+bestModelData1 <- constrainedNBDAdata(nbdadata=nbdaData_D1.2.ILVs,constraintsVect =constraintsVectMatrix[29,])
+bestModelData2 <- constrainedNBDAdata(nbdadata=nbdaData_D2.2.ILVs,constraintsVect =constraintsVectMatrix[29,])
+bestModelData3 <- constrainedNBDAdata(nbdadata=nbdaData_D3.2.ILVs,constraintsVect =constraintsVectMatrix[29,])
+bestModelData5 <- constrainedNBDAdata(nbdadata=nbdaData_D5.2.ILVs,constraintsVect =constraintsVectMatrix[29,])
 
 
+# and run TADA on the best model
 model.best.social <-
   tadaFit(
     list(
@@ -935,13 +1087,14 @@ model.best.social <-
       bestModelData5
     )
   )
-model.best.social@outputPar
-model.best.social@varNames
-# [1] "Scale (1/rate):"         "1 Social transmission 1" "2 Asocial: distance_D1"  "3 Social: distance_D1" 
-# [1] 823.7992383   5.7684467   0.7607148  -1.8509040
+cbind.data.frame(model.best.social@varNames, model.best.social@outputPar)
 
-# best model is showing 'relative convergence'
-model.best.social@optimisation
+# model.best.social@varNames model.best.social@outputPar
+# 1            Scale (1/rate):                 2960.292745
+# 2    1 Social transmission 1                   26.110377
+# 3     2 Asocial: distance_D1                   -2.258964
+# 4      3 Social: distance_D1                   -1.472468
+
 
 # extract the % of events occurring through social learning
 prop.solve.social.byevent <-
@@ -969,45 +1122,53 @@ prop.solve.social <-
     ),
     model = model.best.social
   )
-prop.solve.social # P=0.55
+prop.solve.social # P=0.64696
 
-# extract profile likelihood. which=1 extracts the first parameter (in this case s for the vertical network)
-# (in this case the s parameter for vertical social learning)
-plotProfLik(which=1,model=model.best.social,range=c(0,100), resolution=10) # start with large range
-CIs <- profLikCI(which=1,model=model.best.social, lowerRange = c(0,5), upperRange = c(40, 60)) # extract confidence intervals
+# this means that 64.7% of birds have found the dispensers through social learning 
+# the remaining 35.3% have done so through asocial learning
+
+# extract profile likelihood. which=1 extracts the first parameter 
+# (in this case s for the foraging network)
+plotProfLik(which=1,model=model.best.social,range=c(0,800), resolution=10) 
+# we zoom into the lower and upper range (where the profile likelihood crosses the dotted line)
+plotProfLik(which=1,model=model.best.social,range=c(0,10), resolution=10) 
+plotProfLik(which=1,model=model.best.social,range=c(600,650), resolution=10) 
+# we check where the profile likelihood crosses the dotted line to get the
+# range for the lower and upper interval - set the ranges accordingly
+CIs <- profLikCI(which=1,model=model.best.social, lowerRange = c(0,10), upperRange = c(600, 650)) # extract confidence intervals
 CIs
-#   Lower CI   Upper CI 
-# 0.5396941 45.9442201  
+# Lower CI   Upper CI 
+# 1.925461 622.794178
 
 ######### lower and upper bound in %
 
 #To get the estimates for the lower bound we should really find the corresponding value of the other parameters to plug in when s1 is constrained to this value
 bestModelDataS1LowerBound.D1 <- constrainedNBDAdata(
   nbdadata =
-    nbdaData_D1.all,
-  constraintsVect = constraintsVectMatrix[160, ],
-  offset = c(CIs[1] , rep(0, 7))
+    nbdaData_D1.2.ILVs,
+  constraintsVect = constraintsVectMatrix[29, ],
+  offset = c(CIs[1] , rep(0, 5))
 )
 
 bestModelDataS1LowerBound.D2 <- constrainedNBDAdata(
   nbdadata =
-    nbdaData_D2.all,
-  constraintsVect = constraintsVectMatrix[160, ],
-  offset = c(CIs[1] , rep(0, 7))
+    nbdaData_D2.2.ILVs,
+  constraintsVect = constraintsVectMatrix[29, ],
+  offset = c(CIs[1] , rep(0, 5))
 )
 
 bestModelDataS1LowerBound.D3 <- constrainedNBDAdata(
   nbdadata =
-    nbdaData_D3.all,
-  constraintsVect = constraintsVectMatrix[160, ],
-  offset = c(CIs[1] , rep(0, 7))
+    nbdaData_D3.2.ILVs,
+  constraintsVect = constraintsVectMatrix[29, ],
+  offset = c(CIs[1] , rep(0, 5))
 )
 
 bestModelDataS1LowerBound.D5 <- constrainedNBDAdata(
   nbdadata =
-    nbdaData_D5.all,
-  constraintsVect = constraintsVectMatrix[160, ],
-  offset = c(CIs[1] , rep(0, 7))
+    nbdaData_D5.2.ILVs,
+  constraintsVect = constraintsVectMatrix[29, ],
+  offset = c(CIs[1] , rep(0, 5))
 )
 
 
@@ -1024,7 +1185,7 @@ bestModelS1LowerBound <-
     type = "asocial"
   )
 bestModelS1LowerBound@outputPar
-# [1] 591.956573   0.604114  -3.265292
+# [1] 1158.293029   -1.602609   -2.754137
 #Now plug into the prop solve function
 prop.solve.social.lower <-
   oadaPropSolveByST(
@@ -1038,35 +1199,37 @@ prop.solve.social.lower <-
     )
   )
 prop.solve.social.lower
-# lower bound for % of birds having learned the dial task through social learning is 48.1%
+# P(S offset) 
+# 0.50618
+# lower bound for % of birds having learned the dial task through social learning is 50.6%
 
 #To get the estimates for the upper bound we should really find the corresponding value of the other parameters to plug in when s1 is constrained to this value
 bestModelDataS1upperBound.D1 <- constrainedNBDAdata(
   nbdadata =
-    nbdaData_D1.all,
-  constraintsVect = constraintsVectMatrix[160, ],
-  offset = c(CIs[2] , rep(0, 7))
+    nbdaData_D1.2.ILVs,
+  constraintsVect = constraintsVectMatrix[29, ],
+  offset = c(CIs[2] , rep(0, 5))
 )
 
 bestModelDataS1upperBound.D2 <- constrainedNBDAdata(
   nbdadata =
-    nbdaData_D2.all,
-  constraintsVect = constraintsVectMatrix[160, ],
-  offset = c(CIs[2] , rep(0, 7))
+    nbdaData_D2.2.ILVs,
+  constraintsVect = constraintsVectMatrix[29, ],
+  offset = c(CIs[2] , rep(0, 5))
 )
 
 bestModelDataS1upperBound.D3 <- constrainedNBDAdata(
   nbdadata =
-    nbdaData_D3.all,
-  constraintsVect = constraintsVectMatrix[160, ],
-  offset = c(CIs[2] , rep(0, 7))
+    nbdaData_D3.2.ILVs,
+  constraintsVect = constraintsVectMatrix[29, ],
+  offset = c(CIs[2] , rep(0, 5))
 )
 
 bestModelDataS1upperBound.D5 <- constrainedNBDAdata(
   nbdadata =
-    nbdaData_D5.all,
-  constraintsVect = constraintsVectMatrix[160, ],
-  offset = c(CIs[2] , rep(0, 7))
+    nbdaData_D5.2.ILVs,
+  constraintsVect = constraintsVectMatrix[29, ],
+  offset = c(CIs[2] , rep(0, 5))
 )
 
 
@@ -1083,7 +1246,7 @@ bestModelS1upperBound <-
     type = "asocial"
   )
 bestModelS1upperBound@outputPar
-# [1] 1787.6480094    1.0372553   -0.7438817
+# [1] 42733.558644    -4.364275    -1.127624
 #Now plug into the prop solve function
 prop.solve.social.upper <-
   oadaPropSolveByST(
@@ -1097,287 +1260,9 @@ prop.solve.social.upper <-
     )
   )
 prop.solve.social.upper
-# upper bound for % of birds having learned the dial task through social learning is 69.8%
-
-# 6.8. Run TADA on females in nest boxes ----------------------------------
-
-# we first prepare NBDA data objects including all females (those breeding in boxes + the ones who have visited the dispenser) 
-d1.NBDA.sub <- prepare.NBDA.data(dispenser.data = dispenser.data.1, include.all = FALSE)
-d2.NBDA.sub <- prepare.NBDA.data(dispenser.data = dispenser.data.2, include.all = FALSE)
-d3.NBDA.sub <- prepare.NBDA.data(dispenser.data = dispenser.data.3, include.all = FALSE)
-d4.NBDA.sub <- prepare.NBDA.data(dispenser.data = dispenser.data.4, include.all = FALSE)
-d5.NBDA.sub <- prepare.NBDA.data(dispenser.data = dispenser.data.5, include.all = FALSE)
-
-# number of learners:
-# D1: 1
-# D2: 3
-# D3: 3
-# D4: 0
-# D5: 4
-
-# nbdaData_D1.sub <- nbdaData(label="D1",                        # specify an informative label
-#                             assMatrix=d1.NBDA.sub$assMatrix,           # our array with the matrices
-#                             asoc_ilv=get(paste("ILVs", "D1", sep="_")),            # we specify that ILVs can influence asocial learning, if no ILV: "ILVabsent"
-#                             int_ilv=get(paste("ILVs", "D1", sep="_")),             # we specify that our ILVs can influence social learning, if no ILV: "ILVabsent" 
-#                             multi_ilv="ILVabsent",        # we specify that our ILVs can influence asocial and social learning to the same extent, if no ILV: "ILVabsent" 
-#                             orderAcq=d1.NBDA.sub$OAc,          # vector with the order of acquisition 
-#                             timeAcq=d1.NBDA.sub$TAc,           # numerical vector giving the time at which each individual acquired the target behaviour, given in the order matching orderAcqv
-#                             endTime=41                    # numeric giving the time at which the diffusion ended. (11th of May = day 40)
-# )
-
-nbdaData_D2.sub <- nbdaData(label="D2",                        
-                            assMatrix=d2.NBDA.sub$assMatrix,          
-                            asoc_ilv=get(paste("ILVs", "D2", sep="_")),            
-                            int_ilv=get(paste("ILVs", "D2", sep="_")),            
-                            multi_ilv="ILVabsent",        
-                            orderAcq=d2.NBDA.sub$OAc,          
-                            timeAcq=d2.NBDA.sub$TAc,           
-                            endTime=41
-)
-
-
-nbdaData_D3.sub <- nbdaData(label="D3",                        
-                            assMatrix=d3.NBDA.sub$assMatrix,          
-                            asoc_ilv=get(paste("ILVs", "D3", sep="_")),            
-                            int_ilv=get(paste("ILVs", "D3", sep="_")),            
-                            multi_ilv="ILVabsent",        
-                            orderAcq=d3.NBDA.sub$OAc,          
-                            timeAcq=d3.NBDA.sub$TAc,           
-                            endTime=41
-)
-
-
-
-# skip 4
-
-nbdaData_D5.sub <- nbdaData(label="D5",                        
-                            assMatrix=d5.NBDA.sub$assMatrix,          
-                            asoc_ilv=get(paste("ILVs", "D5", sep="_")),            
-                            int_ilv=get(paste("ILVs", "D5", sep="_")),            
-                            multi_ilv="ILVabsent",        
-                            orderAcq=d5.NBDA.sub$OAc,          
-                            timeAcq=d5.NBDA.sub$TAc,           
-                            endTime=41
-)
-
-
-
-
-
-
-TADA.finding.sub <-
-  tadaAICtable(
-    nbdadata = list(
-    #  nbdaData_D1.sub,
-      nbdaData_D2.sub,
-      nbdaData_D3.sub,
-      nbdaData_D5.sub),
-    constraintsVectMatrix = constraintsVectMatrix, 
-    writeProgressFile = F
-  )
-
-
-# view the results with 'print'
-print(TADA.finding.sub@printTable) # with sub females, 3 ILVs
-
-# network support
-networksSupport <- networksSupport(TADA.finding.sub)
-round(networksSupport, 2)
-
-# variable support
-variable_support <- variableSupport(TADA.finding.sub, includeAsocial = T)
-round(variable_support,3)
-
-# model averaged estimates
-MLE_med  <- modelAverageEstimates(TADA.finding.sub , averageType = "median")
-round(MLE_med,2)
-
-
-# 6.7. Extract effect sizes ------------------------------------------------
-
-bestModelData1 <- constrainedNBDAdata(nbdadata=nbdaData_D1.all,constraintsVect =constraintsVectMatrix[192,])
-bestModelData2 <- constrainedNBDAdata(nbdadata=nbdaData_D2.all,constraintsVect =constraintsVectMatrix[192,])
-bestModelData3 <- constrainedNBDAdata(nbdadata=nbdaData_D3.all,constraintsVect =constraintsVectMatrix[192,])
-bestModelData5 <- constrainedNBDAdata(nbdadata=nbdaData_D5.all,constraintsVect =constraintsVectMatrix[192,])
-
-
-model.best.social <-
-  tadaFit(
-    list(
-      bestModelData1,
-      bestModelData2,
-      bestModelData3,
-      #  bestModelData4,
-      bestModelData5
-    )
-  )
-model.best.social@outputPar
-model.best.social@varNames
-# [1] "Scale (1/rate):"         "1 Social transmission 1"
-# [1]   125.065973   2.124156
-
-# best model is showing 'relative convergence'
-model.best.social@optimisation
-
-# extract the % of events occurring through social learning
-prop.solve.social.byevent <-
-  oadaPropSolveByST.byevent(
-    nbdadata = list(
-      bestModelData1,
-      bestModelData2,
-      bestModelData3,
-      #   bestModelData4,
-      bestModelData5
-    ),
-    model = model.best.social
-  )
-prop.solve.social.byevent 
-
-# this extracts the overall percentage that have learned socially
-prop.solve.social <-
-  oadaPropSolveByST(
-    nbdadata = list(
-      bestModelData1,
-      bestModelData2,
-      bestModelData3,
-      #     bestModelData4,
-      bestModelData5
-    ),
-    model = model.best.social
-  )
-prop.solve.social # P=0.34
-
-# extract profile likelihood. which=1 extracts the first parameter (in this case s for the vertical network)
-# (in this case the s parameter for vertical social learning)
-plotProfLik(which=1,model=model.best.social,range=c(0,20), resolution=10) # start with large range
-CIs <- profLikCI(which=1,model=model.best.social, upperRange = c(7,11)) # extract confidence intervals
-CIs
-# Lower CI Upper CI 
-# 0.00000  9.00025  
-
-######### lower and upper bound in %
-
-#To get the estimates for the lower bound we should really find the corresponding value of the other parameters to plug in when s1 is constrained to this value
-bestModelDataS1LowerBound.D1 <- constrainedNBDAdata(
-  nbdadata =
-    nbdaData_D1.all,
-  constraintsVect = constraintsVectMatrix[192, ],
-  offset = c(CIs[1] , rep(0, 7))
-)
-
-bestModelDataS1LowerBound.D2 <- constrainedNBDAdata(
-  nbdadata =
-    nbdaData_D2.all,
-  constraintsVect = constraintsVectMatrix[192, ],
-  offset = c(CIs[1] , rep(0, 7))
-)
-
-bestModelDataS1LowerBound.D3 <- constrainedNBDAdata(
-  nbdadata =
-    nbdaData_D3.all,
-  constraintsVect = constraintsVectMatrix[192, ],
-  offset = c(CIs[1] , rep(0, 7))
-)
-
-bestModelDataS1LowerBound.D5 <- constrainedNBDAdata(
-  nbdadata =
-    nbdaData_D5.all,
-  constraintsVect = constraintsVectMatrix[192, ],
-  offset = c(CIs[1] , rep(0, 7))
-)
-
-
-#Now, when we fit an "asocial" model it constrains the value of s1=0, but then the value of s at the lower bound is added to s as an offset
-bestModelS1LowerBound <-
-  tadaFit(
-    list(
-      bestModelDataS1LowerBound.D1,
-      bestModelDataS1LowerBound.D2,
-      bestModelDataS1LowerBound.D3,
-      #      bestModelDataS1LowerBound.D4,
-      bestModelDataS1LowerBound.D5
-    ) ,
-    type = "asocial"
-  )
-bestModelS1LowerBound@outputPar
-# [1] 90.27884
-#Now plug into the prop solve function
-prop.solve.social.lower <-
-  oadaPropSolveByST(
-    model = bestModelS1LowerBound,
-    nbdadata = list(
-      bestModelDataS1LowerBound.D1,
-      bestModelDataS1LowerBound.D2,
-      bestModelDataS1LowerBound.D3,
-      bestModelDataS1LowerBound.D4,
-      bestModelDataS1LowerBound.D5
-    )
-  )
-prop.solve.social.lower
-# lower bound for % of birds having learned the dial task through social learning is 0%
-
-#To get the estimates for the upper bound we should really find the corresponding value of the other parameters to plug in when s1 is constrained to this value
-bestModelDataS1upperBound.D1 <- constrainedNBDAdata(
-  nbdadata =
-    nbdaData_D1.all,
-  constraintsVect = constraintsVectMatrix[192, ],
-  offset = c(CIs[2] , rep(0, 7))
-)
-
-bestModelDataS1upperBound.D2 <- constrainedNBDAdata(
-  nbdadata =
-    nbdaData_D2.all,
-  constraintsVect = constraintsVectMatrix[192, ],
-  offset = c(CIs[2] , rep(0, 7))
-)
-
-bestModelDataS1upperBound.D3 <- constrainedNBDAdata(
-  nbdadata =
-    nbdaData_D3.all,
-  constraintsVect = constraintsVectMatrix[192, ],
-  offset = c(CIs[2] , rep(0, 7))
-)
-
-bestModelDataS1upperBound.D5 <- constrainedNBDAdata(
-  nbdadata =
-    nbdaData_D5.all,
-  constraintsVect = constraintsVectMatrix[192, ],
-  offset = c(CIs[2] , rep(0, 7))
-)
-
-
-#Now, when we fit an "asocial" model it constrains the value of s1=0, but then the value of s at the upper bound is added to s as an offset
-bestModelS1upperBound <-
-  tadaFit(
-    list(
-      bestModelDataS1upperBound.D1,
-      bestModelDataS1upperBound.D2,
-      bestModelDataS1upperBound.D3,
-      #      bestModelDataS1upperBound.D4,
-      bestModelDataS1upperBound.D5
-    ) ,
-    type = "asocial"
-  )
-bestModelS1upperBound@outputPar
-# [1] 237.6753
-#Now plug into the prop solve function
-prop.solve.social.upper <-
-  oadaPropSolveByST(
-    model = bestModelS1upperBound,
-    nbdadata = list(
-      bestModelDataS1upperBound.D1,
-      bestModelDataS1upperBound.D2,
-      bestModelDataS1upperBound.D3,
-      bestModelDataS1upperBound.D4,
-      bestModelDataS1upperBound.D5
-    )
-  )
-prop.solve.social.upper
-# upper bound for % of birds having learned the dial task through social learning is 59.4%
-
-
-
-
+# P(S offset) 
+# 0.74311
+# upper bound for % of birds having learned the dial task through social learning is 74.3%
 
 
 
@@ -1394,6 +1279,16 @@ cbind("D5", "Pi"))
 
 colnames(start.colours) <- c("dispenser", "start.colour")
 
+
+# add the closest dispenser to all ILVs
+
+# extract which dispenser was closest 
+for(i in wool.choice$Box){
+  closest <- subset(closest_disp$`Closest dispenser`, rownames(closest_disp)==i)
+  wool.choice[which(wool.choice$Box==i), "dispenser"] <- closest
+}
+
+
 # extract those that accessed the dispenser before the second colour was made available 
 demos <- c("B07",
            "C08",
@@ -1407,11 +1302,7 @@ demos <- c("B07",
 
 wool.choice.learners <- subset(wool.choice, !(wool.choice$Box%in% demos))
 
-# extract which dispenser was closest 
-for(i in wool.choice.learners$Box){
-  closest.disp <- subset(ILVs$Closest.dispenser, ILVs$Box==i)
-  wool.choice.learners[which(wool.choice.learners$Box==i), "dispenser"] <- closest.disp 
-}
+
 
 for(i in wool.choice.learners$dispenser){
   col <- subset(start.colours$start.colour, start.colours$dispenser==i)
@@ -1420,8 +1311,6 @@ for(i in wool.choice.learners$dispenser){
 
 
 # Fishers test
-fisher <- fisher.test(table(learners$provided_color, learners$first_col), alternative = "greater")
-
 
 fisher <- fisher.test(wool.choice.learners$first_color, wool.choice.learners$start.col, alternative = "greater")
 fisher
@@ -1440,148 +1329,128 @@ fisher
 library(igraph)
 
 # for each PIT tag, extract whether it was seen at a network feeder
-which.disp.plot <- NULL
+col.plot <- NULL
 
 for(i in rownames(foraging.network.NBDA)){
-  disp <- unique(subset(ILVs.combined$Closest.dispenser, ILVs.combined$PIT_f==i))
-  which.disp.plot[which(rownames(foraging.network.NBDA)==i)] <- disp
+  box <- subset(ILVs.combined$Box, ILVs.combined$PIT_f==i)
+  if(length(box)>1){
+    box <- subset(box, box %in% wool.choice$Box)
+  } 
+  if(length(box)==0){
+    col <- "none"
+    box <- "no"
+  }
+    if(box=="no_box"){
+    wool.used <- "unknown"
+  } else {
+    wool.used <- subset(wool.choice$first_color, wool.choice$Box==box)  
+    
+  }
+  if(length(wool.used)==0){
+    wool.used <- "none"
+  }
+    col.plot[which(rownames(foraging.network.NBDA)==i)] <- wool.used
 }
 
-which.disp.plot[which.disp.plot=="D1"] <- "#7A7978"
-which.disp.plot[which.disp.plot=="D2"] <- "#87CBAC"
-which.disp.plot[which.disp.plot=="D3"] <- "#90FFDC"
-which.disp.plot[which.disp.plot=="D4"] <- "#8DE4FF"
-which.disp.plot[which.disp.plot=="D5"] <- "#8AC4FF"
+col.plot[col.plot=="unknown"] <- "#575656"
+col.plot[col.plot=="none"] <- "#faf7f7"
+col.plot[col.plot=="Pi"] <- "#F056B3"
+col.plot[col.plot=="O"] <- "#F49527"
+col.plot[col.plot=="Pu"] <- "#873EE0"
+col.plot[col.plot=="B"] <- "#33CCFF"
 
-length(rownames(foraging.network.NBDA))
 
 g.net <- graph_from_adjacency_matrix(foraging.network.NBDA, mode = "undirected",
                                      weighted = TRUE, diag = FALSE)
 
 E(g.net)$width <- E(g.net)$weight
 
-V(g.net)$colour <- which.disp.plot
+V(g.net)$colour <- col.plot
+l <- layout_with_kk(g.net)
 l <- layout_with_fr(g.net )
-l <- layout_in_circle(g.net )
+l <- layout_with_gem(g.net)
+# for each individual, extract which dispenser was closest
+# for those not breeding in boxes, we assign the dispenser they visited
+all.D <- NULL
+suppressWarnings(
+  for(i in rownames(foraging.network.NBDA)){
+    box <- subset(ILVs.combined$Box, ILVs.combined$PIT_f==i)
+    if(box=="no_box"){
+      sub <- subset(ILVs.combined, ILVs.combined$PIT_f==i)
+      D <- c("D1", "D2", "D3", "D4", "D5")[which(sub[,c("D1.visited", "D2.visited", "D3.visited", "D4.visited", "D5.visited"),]==1)]
+    } else {
+      D <- unique(subset(closest_disp$`Closest dispenser`, rownames(closest_disp) %in% box))
+    }
+    D <- unique(D)
+    all.D[which(rownames(foraging.network.NBDA)==i)] <- D  
+  }
+  
+)
 
-plot( g.net,
-      vertex.size = 5,
+length(all.D)
+set.seed(12)
+
+ 
+list(c(14, 24, 27, 28, 36, 41, 43), 
+     c(1,  2,  6,  7, 10, 15, 16, 17, 18, 21, 22, 23, 25, 26, 33, 37, 39, 42, 46),
+     c(3,  9, 11, 20, 29, 30, 32, 34, 38, 40, 45),
+     c(4, 12, 13, 35, 4),
+     c( 5,  8, 19, 31))
+
+# set transparent polgygons
+col.adj <- grDevices::adjustcolor(c("#a08f00","#62dab9", "#b738bd", "#7a3f63", "#c31910"), alpha=0.15)
+
+
+
+
+
+
+
+
+
+
+png( "network.png", units="in", width=12, height=4, res=400)
+
+
+igraph::plot.igraph( g.net,
+      vertex.size = 6,
       edge.curved = 0.2,
-      edge.color =  "darkgrey",
-      vertex.color = V(g.net)$coSlour,
+      edge.color =  "#8c8989",
+      vertex.color = V(g.net)$colour,
       vertex.label = NA,
       vertex.frame.colour = "black",
-      edge.width = E(g.net)$width*10,
-      frame = TRUE,
+      edge.width = E(g.net)$width*5,
+      frame = FALSE,
       layout=l,
       asp = 1,
-      rescale = TRUE
+  #    rescale = TRUE,
+      mark.groups = list(c(14, 24, 27, 28, 36, 41, 43), 
+                         c(1,  2,  6,  7, 10, 15, 16, 17, 18, 21, 22, 23, 25, 26, 33, 37, 39, 42, 46),
+                         c(3,  9, 11, 20, 29, 30, 32, 34, 38, 40, 45),
+                         c(4, 12, 13, 35, 4),
+                         c( 5,  8, 19, 31)),
+      mark.border =NA,
+    mark.col=col.adj
+      
+      
 )
 
 
 
-plot.network <- function(net, demos, learners.list, experiment, n, solves, diffusion, position, simple.list){
-  # create a colour vector that distinguishes between learners.list, naive birds and demonstrators
-  cat.all <- NULL
-  for (i in rownames(net)){
-    if(i %in% demos){
-      cat <- "#F0DC6A"
-    } else if(i %in% simple.list){
-      cat <- "#33CCCC"  # blue for simple learners
-    } else if (i %in% learners.list$RING){
-      cat <- "#660099"  # purple for complex learners
-    } 
-    else {cat <- "#FFFFFF"} #white for non-learners
-    cat.all[which(rownames(net)==i)] <- cat    
-  }
-  
-  # create graph object
-  g.net <- graph_from_adjacency_matrix(net, mode = "undirected",
-                                       weighted = TRUE, diag = FALSE)
-  V(g.net)$colour <- cat.all
-  
-  E(g.net)$width <- E(g.net)$weight
-  E(g.net)$edge.color <- "gray50"
-  # remove edge weights below 0.005
-  g.net <- delete_edges(g.net, E(g.net)[weight<0.05])
-  # layout fruchtermann reingold
-  l <- layout_with_fr(g.net )
-  title <-  paste(experiment, paste("(N=", n, ")", sep =
-                                      ""), sep = " ")
-  
-  
-  plot( g.net,
-        vertex.size = 6,
-        edge.curved = 0.2,
-        edge.color =  E(g.net)$edge.color,
-        vertex.color = V(g.net)$colour,
-        vertex.label = NA,
-        vertex.frame.colour = "black",
-        edge.width = E(g.net)$width*10,
-        frame = TRUE,
-        layout=l,
-        #   main= title,
-        adj = c(0,-1),
-        margin=c(0.02,0.0,0.0,0.0),
-        asp = 1,
-        rescale = TRUE
-  )
-  
-  title(title, line=0.5, adj=0.0, cex.main=1.5, font =1, family = "sans")
-  if(position!="none"){
-    legend(x=-1.15, y=-0.7, c("naive","simple", "demonstrator", "complex"), pch=21,
-           
-           col="#777777", pt.bg=c("#FFFFFF", "#33CCCC", "#F0DC6A", "#660099"), pt.cex=1.5, cex=1.2, bty="n", ncol=1, 
-           y.intersp=0.8)
-  }
-  
-  
-}
-set.seed(10)
-
-png( "networks.png", units="in", width=12, height=4, res=400)
-par(mfrow=c(1,3), mai = c(0.0, 0.0, 0.2, 0.07))
 
 
-p1 <-
-  plot.network(
-    net = dial.net,
-    demos = demos.dial,
-    learners.list = learners.list.dial,
-    n = BB_NBDA_DATA$num.birds,
-    experiment = "A) Dial diffusion",
-    solves = "dial",
-    diffusion = "dial_diffusion",
-    position = "left",
-    simple.list = learners.list.dial$RING
-  )
 
 
-p2 <-
-  plot.network(
-    net = complex1st.net,
-    demos = NA,
-    learners.list = learners.list.complex1st,
-    n = BB_complex_progressive$num.birds,
-    experiment = "B) Complex 1st generation",
-    solves = "complex",
-    diffusion = "complex_prog",
-    position = "none", 
-    simple.list = learners.complex1st.simple
-  )
+#abd2c1
+#e6b8b3
+#98d4e4
+#d4d7b2
+#c4bedf
 
-p3 <-
-  plot.network(
-    net = complex2nd.net,
-    demos = demos.complex2nd,
-    learners.list = learners.list.complex2nd,
-    n = BB_complex_next_gen$num.birds,
-    experiment = "C) Complex 2nd generation",
-    solves = "complex",
-    diffusion = "nextgen",
-    position = "none",
-    simple.list = learners.complex2nd.simple
-  )
+
+
+
+
 
 
 dev.off()
