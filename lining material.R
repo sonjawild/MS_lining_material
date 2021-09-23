@@ -938,22 +938,22 @@ E(g.net)$width <- E(g.net)$weight
 
 V(g.net)$colour <- col.plot
 
-# assign to which disepnser area(s) each bird belongs
-# for those not breeding in boxes, we assign the dispenser they visited
-list.D <- NULL
-for(i in c("D1", "D2", "D3","D4", "D5")){
-  # We extract which females were breeding in boxes within 200m of the respective dispenser or have visited it
-  IDs.included <- subset(ILVs.combined$PIT_f, ILVs.combined[,i]<=200 | ILVs.combined[,paste(i, ".visited", sep="")]==1 ) 
-  IDs.included <- subset(IDs.included, IDs.included %in% IDs.to.include.in.NBDA) # cut down to IDs in the foraging network
-  D <- which(rownames(foraging.network.NBDA) %in% IDs.included)
-  list.D[[i]] <- D
-}
-
-list.D
+# # assign to which disepnser area(s) each bird belongs
+# # for those not breeding in boxes, we assign the dispenser they visited
+# list.D <- NULL
+# for(i in c("D1", "D2", "D3","D4", "D5")){
+#   # We extract which females were breeding in boxes within 200m of the respective dispenser or have visited it
+#   IDs.included <- subset(ILVs.combined$PIT_f, ILVs.combined[,i]<=200 | ILVs.combined[,paste(i, ".visited", sep="")]==1 ) 
+#   IDs.included <- subset(IDs.included, IDs.included %in% IDs.to.include.in.NBDA) # cut down to IDs in the foraging network
+#   D <- which(rownames(foraging.network.NBDA) %in% IDs.included)
+#   list.D[[i]] <- D
+# }
+# 
+# list.D
  
 
 # set transparent polgygons
-col.adj <- grDevices::adjustcolor(c("#a08f00","#62dab9", "#b738bd", "#7a3f63", "#c31910"), alpha=0.15)
+# col.adj <- grDevices::adjustcolor(c("#a08f00","#62dab9", "#b738bd", "#7a3f63", "#c31910"), alpha=0.15)
 
 
 png( "network.png", units="in", width=12, height=4, res=400)
@@ -970,9 +970,9 @@ igraph::plot.igraph( g.net,
       frame = FALSE,
       layout=layout.graphopt(g.net),
       asp = 1,
-      mark.groups = list.D,
-      mark.border =NA,
-    mark.col=col.adj
+ #     mark.groups = list.D,
+  #    mark.border =NA,
+  #  mark.col=col.adj
       
       
 )
