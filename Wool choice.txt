@@ -1,0 +1,27 @@
+Box	first_color	second_color	PIT	Species	Age	Closest_disp	Initial_col_provided	Demos
+B07	Pi		0700EDFCC0	GRETI	first.year	D1	Pi	yes
+B26	Pi		0	GRETI	0	D1	Pi	no
+D01	Pi		0	GRETI	0	D1	Pi	no
+D03	Pi		0700EDC6F3	BLUTI	first.year	D1	Pi	yes
+H02	Pi		011017923C	BLUTI	adult	D2	Pu	no
+H04	Pi		0	GRETI	0	D2	Pu	no
+S15	Pu		0700EDDDF1	GRETI	adult	D2	Pu	no
+S16	Pu		0700ED86AF	GRETI	adult	D2	Pu	yes
+S17	Pu	B	0	unknown	0	D2	Pu	no
+S20	Pu		0700EDA99E	GRETI	adult	D2	Pu	no
+S23	Pu		01101789A9	GRETI	adult	D2	Pu	no
+C08	Pi		0700ED9DDA	GRETI	adult	D3	Pi	yes
+C09	Pi		0700EDEC3B	GRETI	first.year	D3	Pi	no
+V01	Pi	O	0700ED8ADD	GRETI	first.year	D3	Pi	no
+V02	Pi	O	0	GRETI	0	D3	Pi	yes
+G33	B		01101785BD	GRETI	adult	D4	B	no
+H13	Pi		0700EE37EC	GRETI	first.year	D4	B	no
+H15	Pi		0700EDA38B	GRETI	adult	D4	B	no
+H24	B		0110178CCD	BLUTI	first.year	D4	B	yes
+T01	B	Pu	0	GRETI	0	D4	B	yes
+G16	Pi	O	0	unknown	0	D5	O	no
+H07	Pi		0700EE091F	GRETI	first.year	D5	O	no
+H08	O		0110179AA2	MARTI	adult	D5	O	yes
+H09	Pi	B	0700EDAC11	GRETI	first.year	D5	O	no
+H11	Pi		01101785F7	GRETI	adult	D5	O	no
+H12	O	Pi	0700EE2F2C	GRETI	adult	D5	O	no

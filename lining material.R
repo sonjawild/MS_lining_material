@@ -824,70 +824,25 @@ exp(c(mle[5], CIs[1], CIs[2]))
 # 7) Wool choice ----------------------------------------------------------
 # here, we investigate whether birds showed a colour preference for the colour initially provided (that the demonstrators were restricted to)
 
-wool.choice <- read.delim("Wool_boxes.txt", sep="\t")
-
-# we define which colours were intitially provided in which dispenser
-start.colours <- rbind.data.frame(
-  cbind("D1", "Pi"),
-  cbind("D2", "Pu"),
-  cbind("D3", "Pi"),
-  cbind("D4", "B"),
-  cbind("D5", "O")
-)
-
-colnames(start.colours) <- c("dispenser", "start.colour")
+wool.choice <- read.delim("Wool choice.txt", sep="\t")
 
 
-# extract which dispenser was closest for each box
-closest_dispenser <- distance_matrix[,c("D1","D2","D3","D4","D5")] 
-closest_disp <- data.frame(cbind(colnames(closest_dispenser)[apply(closest_dispenser, 1, which.min)]),
-                           apply(closest_dispenser, 1, min))
-colnames(closest_disp) <- c("Closest dispenser", "Distance to dispenser")
-head(closest_disp)
-
-
-for(i in wool.choice$Box){
-  closest <- subset(closest_disp$`Closest dispenser`, rownames(closest_disp)==i)
-  wool.choice[which(wool.choice$Box==i), "dispenser"] <- closest
-}
-
-
-# extract those that accessed the dispenser before the second colour was made available 
-# which are considered 'demonstrators' in this case
-demos <- c("B07",
-           "C08",
-           "D03",
-           "H08",
-           "H24",
-           "S16",
-           "T01",
-           "V02")
-
-
-wool.choice.learners <- subset(wool.choice, !(wool.choice$Box%in% demos))
-# this data frame now only contains those that had a choice in colour
-
-
-for(i in wool.choice.learners$dispenser){
-  col <- subset(start.colours$start.colour, start.colours$dispenser==i)
-  wool.choice.learners[which(wool.choice.learners$dispenser==i), "start.col"] <- col
-}
-
+wool.choice.learners <- subset(wool.choice, wool.choice$Demos!="yes")
 wool.choice.learners
-# this df shows the picked colour (first_colour), as well as the initially provided colour (start.col)
+# this df shows the picked colour (first_colour), as well as the initially provided colour (initial.col)
 # it only contains birds that had a choice (excluding demonstrators)
 # it also shows whether birds have incorporate a second colour and which dispenser area they belong to
 
 # We conduct a Fisher's exact test to see whether there is non-random clustering within each dispenser are
 # we expect a preference for the first introduced colour if birds use social information
 
-fisher <- fisher.test(wool.choice.learners$first_color, wool.choice.learners$start.col, alternative = "greater")
+fisher <- fisher.test(wool.choice.learners$first_color, wool.choice.learners$Initial_col_provided, alternative = "greater")
 fisher
 
 # Fisher's Exact Test for Count Data
-# 
-# data:  wool.choice.learners$first_color and wool.choice.learners$start.col
-# p-value = 0.04254
+
+# data:  wool.choice.learners$first_color and wool.choice.learners$Initial_col_provided
+# p-value = 0.02498
 # alternative hypothesis: greater
 
 
