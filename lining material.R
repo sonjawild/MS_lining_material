@@ -845,6 +845,14 @@ fisher
 # p-value = 0.02498
 # alternative hypothesis: greater
 
+# to investigate influence of age and species, we subset it to know individuals
+wool.choice.learners.glm <- subset(wool.choice.learners, wool.choice.learners$PIT!=0)
+glm.wool.choice <-
+  glm(
+    wool.choice.learners.glm$Matched ~ wool.choice.learners.glm$Age + wool.choice.learners.glm$Species,
+    family = binomial(link = "logit")
+  )
+summary(glm.wool.choice)
 
 # 8) Visualization --------------------------------------------------------
 
