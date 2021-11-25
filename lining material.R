@@ -839,6 +839,7 @@ wool.choice.learners
 fisher <- fisher.test(wool.choice.learners$first_color, wool.choice.learners$Initial_col_provided, alternative = "greater")
 fisher
 
+
 # Fisher's Exact Test for Count Data
 
 # data:  wool.choice.learners$first_color and wool.choice.learners$Initial_col_provided
@@ -853,6 +854,29 @@ glm.wool.choice <-
     family = binomial(link = "logit")
   )
 summary(glm.wool.choice)
+
+Call:
+  glm(formula = wool.choice.learners.glm$Matched ~ wool.choice.learners.glm$Age + 
+        wool.choice.learners.glm$Species, family = binomial(link = "logit"))
+# 
+# Deviance Residuals: 
+#   Min       1Q   Median       3Q      Max  
+# -1.5829  -1.0108   0.8203   0.8203   1.3537  
+# 
+# Coefficients:
+#   Estimate Std. Error z value Pr(>|z|)
+# (Intercept)                             -17.566   3956.180  -0.004    0.996
+# wool.choice.learners.glm$Agefirst.year   -1.322      1.238  -1.067    0.286
+# wool.choice.learners.glm$SpeciesGRETI    18.482   3956.180   0.005    0.996
+# 
+# (Dispersion parameter for binomial family taken to be 1)
+# 
+# Null deviance: 17.945  on 12  degrees of freedom
+# Residual deviance: 15.106  on 10  degrees of freedom
+# AIC: 21.106
+# 
+# Number of Fisher Scoring iterations: 16
+
 
 # 8) Visualization --------------------------------------------------------
 
