@@ -826,7 +826,6 @@ exp(c(mle[5], CIs[1], CIs[2]))
 
 wool.choice <- read.delim("Wool choice.txt", sep="\t")
 
-
 wool.choice.learners <- subset(wool.choice, wool.choice$Demos!="yes")
 wool.choice.learners
 # this df shows the picked colour (first_colour), as well as the initially provided colour (initial.col)
