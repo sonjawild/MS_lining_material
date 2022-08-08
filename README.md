@@ -1,12 +1,9 @@
-# MS_lining_material
-
-# testing-things
-## Sonja Wild
+## TITS (PARIDAE SP.) USE SOCIAL INFORMATION WHEN LOCATING AND CHOOSING NEST LINING MATERIAL  
 
 # lining material.R 
 contains the R code needed to replicate all analyses and plot figures
 
-#coordinates_boxes 
+# coordinates_boxes 
 contain GPS locations of all nest boxes and the five wool dispensers for calculating distance matrices
 
 # dispenser.data.RDA 
@@ -31,7 +28,7 @@ contains raw data of all visits to dispensers 1-5
 - Demos: 'yes' if built nest before access to both colour was granted, 'no' if otherwise
 
 # ILVs.combined.RDA
-containts individual-level variables for NBDA analyses
+contains individual-level variables for NBDA analyses
  - Box: nestbox number
  - PIT_f: PIT tag of female
  - Species: GRETI for great tit, MARTI for marsh tit, BLUTI for blue tit
