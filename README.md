@@ -15,7 +15,8 @@ contains raw data of all visits to dispensers 1-5
 - Location: D1-D5 for each of the 5 dispensers
 - visit: cumulative number of visits by birds
 
-## wool choice.txt contains information on the wool females incorporated into their nest as a first colour and the majority colour they used
+## wool choice.txt 
+contains information on the wool females incorporated into their nest as a first colour and the majority colour they used
 - Box: nest box name
 - first_color: the first colour they incorporated
 - second_color: the second colour they incorporated (empty if only one colour)
