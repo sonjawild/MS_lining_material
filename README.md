@@ -3,12 +3,15 @@
 # testing-things
 ## Sonja Wild
 
-### lining material.R contains the R code needed to replicate all analyses and plot figures
+# lining material.R 
+contains the R code needed to replicate all analyses and plot figures
 
-### coordinates_boxes contain GPS locations of all nest boxes and the five wool dispensers for calculating distance matrices
+#coordinates_boxes 
+contain GPS locations of all nest boxes and the five wool dispensers for calculating distance matrices
 
-### dispenser.data.RDA contains raw data of all visits to dispensers 1-5
-# columns:
+# dispenser.data.RDA 
+contains raw data of all visits to dispensers 1-5
+ columns:
 - date.time (yymmddHHMMSS)
 - Antenna (A for auxiliary, M for main)
 - PIT: PIT tag of visiting female (10-digit alphanumeric code)
@@ -26,3 +29,16 @@
 - Initial_col_provided: initally seeded colour in the respective dispenser area
 - Matched: 1 if first colour matched seeded colour, 0 if no match
 - Demos: 'yes' if built nest before access to both colour was granted, 'no' if otherwise
+
+# ILVs.combined.RDA
+containts individual-level variables for NBDA analyses
+ - Box: nestbox number
+ - PIT_f: PIT tag of female
+ - Species: GRETI for great tit, MARTI for marsh tit, BLUTI for blue tit
+ - Age: either 'adult' or 'first.year'
+ - Lay.Date: Date of first egg laid in number of days after the first of April
+ - Hatch.Date: date of first chicks hatching in number of days after first of April
+ - First.visits: Date (yymmddHHMMSS) of first visit to a dispenser
+ - D1-D5: distance (in m) to each dispenser
+ - D1.visited-D5.visited: 0 if not visited dispenser, 1 if registered on the respective dispenser
+ - closest.dispenser: distance (in m) to the closest dispenser
