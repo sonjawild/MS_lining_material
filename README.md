@@ -1,12 +1,12 @@
-## TITS (PARIDAE SP.) USE SOCIAL INFORMATION WHEN LOCATING AND CHOOSING NEST LINING MATERIAL  
+# TITS (PARIDAE SP.) USE SOCIAL INFORMATION WHEN LOCATING AND CHOOSING NEST LINING MATERIAL  
 
-# lining material.R 
+## lining material.R 
 contains the R code needed to replicate all analyses and plot figures
 
-# coordinates_boxes 
+## coordinates_boxes 
 contain GPS locations of all nest boxes and the five wool dispensers for calculating distance matrices
 
-# dispenser.data.RDA 
+## dispenser.data.RDA 
 contains raw data of all visits to dispensers 1-5
  columns:
 - date.time (yymmddHHMMSS)
@@ -15,7 +15,7 @@ contains raw data of all visits to dispensers 1-5
 - Location: D1-D5 for each of the 5 dispensers
 - visit: cumulative number of visits by birds
 
-### wool choice.txt contains information on the wool females incorporated into their nest as a first colour and the majority colour they used
+## wool choice.txt contains information on the wool females incorporated into their nest as a first colour and the majority colour they used
 - Box: nest box name
 - first_color: the first colour they incorporated
 - second_color: the second colour they incorporated (empty if only one colour)
@@ -27,7 +27,7 @@ contains raw data of all visits to dispensers 1-5
 - Matched: 1 if first colour matched seeded colour, 0 if no match
 - Demos: 'yes' if built nest before access to both colour was granted, 'no' if otherwise
 
-# ILVs.combined.RDA
+## ILVs.combined.RDA
 contains individual-level variables for NBDA analyses
  - Box: nestbox number
  - PIT_f: PIT tag of female
