@@ -40,3 +40,8 @@ contains individual-level variables for NBDA analyses
  - D1-D5: distance (in m) to each dispenser
  - D1.visited-D5.visited: 0 if not visited dispenser, 1 if registered on the respective dispenser
  - closest.dispenser: distance (in m) to the closest dispenser
+ 
+ ## gmm.spring
+ contains raw data for calculating foraging associations 
+ - slot $gbi = group by individual matrix (each row is one individual, each column is a group. Entry of 1 if present in group, 0 if absent)
+ 
