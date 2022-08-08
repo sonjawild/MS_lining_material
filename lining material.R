@@ -1,5 +1,5 @@
 
-# ## LINING MATERIAL MANUSCRIPT ------------------------------------------------------
+# ## TITS (PARIDAE SP.) USE SOCIAL INFORMATION WHEN LOCATING AND CHOOSING NEST LINING MATERIAL   ------------------------------------------------------
 
 # 1) Load necessary libraries -------------------------------------------------------
 
@@ -32,14 +32,14 @@ foraging_network <-
   )
 
 dim(foraging_network)
-
+# 157 birds (both males and females)
 
 # 3) Create distance matrix ----------------------------------------------------
 
 
 # 3.1. Read GPS data ------------------------------------------------------
 
-GPS_data <- read.csv("coordinates_boxes+dispensers_ALL.csv")
+GPS_data <- read.csv("coordinates_boxes.csv")
 
 # 3.2. Load functions to calculate distances in m -------------------------
 
@@ -101,9 +101,10 @@ coordinates <- data.frame(name = GPS_data$Box,
                           lat  = GPS_data$Lat,
                           lon  = GPS_data$Long)
 
+# calculate distance 
 distance_matrix<-round(GeoDistanceInMetresMatrix(coordinates))
 head(distance_matrix)
-
+# contains the distance beteween all nest boxes and dispensers (D1-D5) in metres
 
 # 3.4. Extract which boxes are within 200m of dispensers ------------------
 neighbour_matrix <- distance_matrix
@@ -117,14 +118,13 @@ length(boxes.to.include)
 # 3.5. Calculate the neighbour matrix -------------------------------------
 
 # we set all values above 50m to 0
-# and then use inverted distances
+# and then use inverted square root of distances
 # so that boxes closer together have higher values
 
 neighbour_matrix <- distance_matrix
 
 neighbour_matrix[neighbour_matrix>=50] <- 0
-
-neighbour_matrix <- 1/neighbour_matrix
+neighbour_matrix <- 1/sqrt(neighbour_matrix)
 
 # set all infinity values to 0
 neighbour_matrix[neighbour_matrix==Inf] <- 0
@@ -149,6 +149,20 @@ length(unique(dispenser.data.comb$PIT))
 # # 5) Load individual-level variables (ILVs) ---------------------------------------------------------
 
 load("ILVs.combined.RDA")
+head(ILVs.combined)
+
+
+# columns:
+# - Box: nestbox number
+# - PIT_f: PIT tag of female
+# - Species: GRETI for great tit, MARTI for marsh tit, BLUTI for blue tit
+# - Age: either 'adult' or 'first.year'
+# - Lay.Date: Date of first egg laid in number of days after the first of April
+# - Hatch.Date: date of first chicks hatching in number of days after first of April
+# - First.visits: Date (yymmddHHMMSS) of first visit to a dispenser
+# - D1-D5: distance (in m) to each dispenser
+# - D1.visited-D5.visited: 0 if not visited dispenser, 1 if registered on the respective dispenser
+# - closest.dispenser: distance (in m) to the closest dispenser
 
 # 6) NBDA - social information to use to find lining material -----------------------------------------------------------------
 # load NBDa via devtools
@@ -235,12 +249,12 @@ library(vegan)
 # Call:
 # mantel(xdis = neighbour_matrix.NBDA.new, ydis = foraging.network.NBDA,      permutations = 9999) 
 # 
-# Mantel statistic r: 0.04815 
-#       Significance: 0.0826 
+# Mantel statistic r: 0.05486 
+#       Significance: 0.0598 
 # 
 # Upper quantiles of permutations (null model):
 #    90%    95%  97.5%    99% 
-# 0.0429 0.0610 0.0783 0.1010 
+# 0.0428 0.0590 0.0747 0.0949 
 # Permutation: free
 # Number of permutations: 9999
 
@@ -252,6 +266,22 @@ library(vegan)
  # it subsets the data to those individuals breeding around each dispenser area (within 200m)
  # and extracts ILVs for these individuals and gets them into the right format
 
+ # Since we standardize the distance to the dispenser, we first need to extract the mean and standard deviation across all boxes
+ # (removing D04, R06 and G33 since those females built two nests in neighbouring boxes)
+ dist.calc <- ILVs.combined[!(ILVs.combined$Box %in% c("D04", "R06", "G33")),]
+dist.vec <- NULL
+ for(i in 1:length(dist.calc$Box)){
+   which.visited.i <- which(dist.calc[i,colnames(dist.calc) %in% c("D1.visited", "D2.visited", "D3.visited", "D4.visited", "D5.visited")]==1)
+   if(length(which.visited.i)>0){
+    dist.i <-  as.numeric(dist.calc[i,colnames(dist.calc) %in% c("D1", "D2", "D3", "D4", "D5")][which.visited.i])
+    dist.vec <- c(dist.vec, dist.i)
+   }
+  dist.vec <-  as.numeric(na.omit(dist.vec))
+ }
+
+# calculate the mean and standard deviation
+mean(dist.vec)
+sd(dist.vec)   
  
 prepare.NBDA.data <- function(dispenser.data, include.all, ILVs.include){
   dispenser.data <- dispenser.data[order(dispenser.data$date.time),] # ensure it is sorted according to date
@@ -285,11 +315,12 @@ prepare.NBDA.data <- function(dispenser.data, include.all, ILVs.include){
   age.nbda[age.nbda=="first.year"] <- -0.5 # -0.5 for juveniles
   age.nbda[age.nbda=="adult"] <- 0.5 # 0.5 for adult birds
   age.nbda <- as.matrix(as.numeric(age.nbda))
-  
+
+    
   distance.nbda <- as.matrix(as.numeric(ILVs.sub.disp[,location])) # we extract the distance of the box to the respective dispenser
   distance.nbda[is.na(distance.nbda)] <- mean(distance.nbda[!is.na(distance.nbda)]) # for those not breeding in boxes, add the average distance to the respective dispenser
-  # we standardize the distance for better model fitting - using the standard deviation and mean
-  distance.nbda <- as.matrix(as.numeric(scale(distance.nbda)))
+  # we take the square root and standardize the distance for better model fitting - using the standard deviation and mean across all distances calculated above
+  distance.nbda <- (sqrt(distance.nbda)-sqrt(mean(dist.vec)))/sqrt(sd(dist.vec))
   
   # we need to assign these ILVs as objects to the global environment
   assign(paste("species", location, sep="_"), species.nbda, envir = .GlobalEnv)
@@ -538,10 +569,12 @@ head(constraintsVectMatrix)
 # but here, we want to estimate all parameters independently (hence, consecutive numbers for each additional parameter)
 
 
-
 # 6.6. Run TADA on all females  --------------------------------------------------------------------
 
 # we run TADA with multiple diffusions
+
+
+# Now we can run TADA
 TADA.finding.all <-
   tadaAICtable(
     nbdadata = list(
@@ -550,7 +583,8 @@ TADA.finding.all <-
       nbdaData_D3.all,
       nbdaData_D5.all),
     constraintsVectMatrix = constraintsVectMatrix, 
-    writeProgressFile = F
+    writeProgressFile = F,
+    cores=1
 )
 
 # we have a look at the resulting AICc table
@@ -562,22 +596,21 @@ print(TADA.finding.all@printTable)
 # we can extract network support via summed Akaike weights
 networksSupport(TADA.finding.all)
 
-#       support        numberOfModels
-# 0:0 0.13807078              8
-# 0:1 0.06135748             64
-# 1:0 0.67768236             64
-# 1:2 0.12288938             64
+#        support numberOfModels
+# 0:0 0.16606724              8
+# 0:1 0.07405923             64
+# 1:0 0.64087268             64
+# 1:2 0.11900085             64
 
-# most evidential support for transmission along the foraging network (0.68), 
-# followed by asocial models (0.14)
+# most evidential support for transmission along the foraging network (0.64), 
+# followed by asocial models (0.16)
 # followed by transmission through both the neighbour and the foraging network (0.12)
-# transmission through the neighbour network alone getslittle support (0.06)
+# transmission through the neighbour network alone gets little support (0.07)
 
 variableSupport(TADA.finding.all)
 
-#            s1        s2      ASOC:age_D1   ASOC:species_D1 A SOC:distance_D1 SOCIAL:age_D1   SOCIAL:species_D1  SOCIAL:distance_D1
-# support 0.8005717 0.1842469   0.1706535       0.1849043         0.672019      0.272989         0.1887481          0.1766985
-
+#                s1        s2 ASOC:age_D1 ASOC:species_D1 ASOC:distance_D1 SOCIAL:age_D1 SOCIAL:species_D1 SOCIAL:distance_D1
+# support 0.7598735 0.1930601   0.1751455       0.1916325        0.6019383     0.2535429         0.1806516          0.1496506
 
 # support for distance influencing the asocial learning rate (weight >0.5)
 # none of the other ILVs influencing social or asocial learning rate (weight < 0.5)
@@ -586,8 +619,12 @@ variableSupport(TADA.finding.all)
 # extracting effect sizes: model averaged estimates
 mle <- modelAverageEstimates(TADA.finding.all , averageType = "median")
 mle
-# s1                 s2              ASOCIALage_D1     ASOCIALspecies_D1 ASOCIALdistance_D1    SOCIALage_D1   SOCIALspecies_D1  SOCIALdistance_D1 
-# 3.2331317          0.0000000          0.0000000          0.0000000         -0.6600527          0.0000000          0.0000000          0.0000000 
+
+# s1                 s2      ASOCIALage_D1  ASOCIALspecies_D1 ASOCIALdistance_D1       SOCIALage_D1   SOCIALspecies_D1 
+# 2.060685           0.000000           0.000000           0.000000          -1.216212           0.000000           0.000000 
+# SOCIALdistance_D1 
+# 0.000000 
+
 
 # we can see that the value for the distance influencing the asocial learning rate is negative
 # which means that as the distance increases, the asocial learning rate decreases
@@ -623,9 +660,9 @@ model.best.social <-
 cbind.data.frame(model.best.social@varNames, model.best.social@outputPar)
 
 # model.best.social@varNames model.best.social@outputPar
-# 1            Scale (1/rate):                 160.6239013
-# 2    1 Social transmission 1                   3.3275671
-# 3     2 Asocial: distance_D1                  -0.6600527
+# 1            Scale (1/rate):                  104.452121
+# 2    1 Social transmission 1                    2.060685
+# 3     2 Asocial: distance_D1                   -1.751323
 
 
 # extract the % of events occurring through social learning
@@ -655,20 +692,20 @@ prop.solve.social <-
     ),
     model = model.best.social
   )
-prop.solve.social # P=0.4191
+prop.solve.social # P=0.39912
 
-# this means that 41.9% of birds have found the dispensers through social learning 
-# the remaining 58.1% have done so through asocial learning
+# this means that 39.9% of birds have found the dispensers through social learning 
+# the remaining 60.1% have done so through asocial learning
 
 # extract profile likelihood. which=1 extracts the first parameter 
 # (in this case s for the foraging network)
-plotProfLik(which=1,model=model.best.social,range=c(0,20), resolution=10) 
+plotProfLik(which=1,model=model.best.social,range=c(0,10), resolution=10) 
 # we check where the profile likelihood crosses the dotted line to get the
 # range for the lower and upper interval - set the ranges accordingly
-CIs <- profLikCI(which=1,model=model.best.social, lowerRange = c(0,2), upperRange = c(10,20)) # extract confidence intervals
+CIs <- profLikCI(which=1,model=model.best.social, lowerRange = c(0,2), upperRange = c(7,9)) # extract confidence intervals
 CIs
 # Lower CI   Upper CI 
-# 0.1522006 15.5464630
+# 0.03294246 7.75306815 
 
 # we also want to extract what this means in %
 
@@ -717,7 +754,7 @@ bestModelS1LowerBound <-
     type = "asocial"
   )
 bestModelS1LowerBound@outputPar
-# [1] 99.1662098 -0.4286967
+# [1] 74.544590 -1.236396
 
 #Now we plug this into the prop solve function to get %
 prop.solve.social.lower <-
@@ -733,8 +770,8 @@ prop.solve.social.lower <-
   )
 prop.solve.social.lower
 # P(S offset) 
-# 0.05132
-# lower bound for % of birds having learned the dial task through social learning is 5.1%
+# 0.01499 
+# lower bound for % of birds having learned the dial task through social learning is 1.5%
 
 # We repeat it for the upper bound
 bestModelDataS1upperBound.D1 <- constrainedNBDAdata(
@@ -779,7 +816,7 @@ bestModelS1upperBound <-
     type = "asocial"
   )
 bestModelS1upperBound@outputPar
-# [1] 407.109918  -1.188658
+# [1] 196.648163  -2.068738
 #Now plug into the prop solve function
 prop.solve.social.upper <-
   oadaPropSolveByST(
@@ -794,31 +831,35 @@ prop.solve.social.upper <-
   )
 prop.solve.social.upper
 # P(S offset) 
-# 0.63167 
-# upper bound for % of birds having learned about the location of the dispensers through social learning is 63.2%
+# 0.61521  
+# upper bound for % of birds having learned about the location of the dispensers through social learning is 61.5%
 
 # Finally, we extract the effect size for the distance influencing asocial learning
 # again, we base this off the best performing model
 # all we have to do is set which=2 (for the second parameter in the model)
 model.best.social@varNames
 # [1] "Scale (1/rate):"         "1 Social transmission 1" "2 Asocial: distance_D1" 
-plotProfLik(which=2,model=model.best.social,range=c(-2,1), resolution=10) 
+plotProfLik(which=2,model=model.best.social,range=c(-4,1), resolution=10) 
 # we check where the profile likelihood crosses the dotted line to get the
 # range for the lower and upper interval - set the ranges accordingly
-CIs <- profLikCI(which=2,model=model.best.social, lowerRange = c(-2,-1), upperRange = c(-0.5,0.5)) # extract confidence intervals
+CIs <- profLikCI(which=2,model=model.best.social, lowerRange = c(-4,-3), upperRange = c(-0.5,0.5)) # extract confidence intervals
 CIs
 
 # Lower CI    Upper CI 
-# -1.44397740 -0.06182192
+# -3.72447916 -0.05463852
 
 # all we need to do now is back-transform the estimates
+# by dividing through the square rooted standard deviation
 
-exp(c(mle[5], CIs[1], CIs[2]))
-# the unit here is standard deviation - as the distance was standardized for each dispenser area separately
-# the standard deviations are slightly different in each area - we therefore retain the unit as 'standard deviation'
+dist.eff <- exp(c(mle[5], CIs[1], CIs[2])/sqrt(sd(dist.vec)))
+# the unit now is per 1/m
+dist.eff
 
 # ASOCIALdistance_D1           Lower CI           Upper CI 
-# 0.5168241                   0.2359873          0.9400503 
+# 0.8453244                   0.5977497          0.9924794 
+
+# the rate of asocial learning decreases by a factor of 0.85 [0.60-0.99] 
+# per square root m increase in distance of the nest to the dispenser
 
 
 # 7) Wool choice ----------------------------------------------------------
@@ -845,36 +886,6 @@ fisher
 # p-value = 0.02498
 # alternative hypothesis: greater
 
-# to investigate influence of age and species, we subset it to know individuals
-wool.choice.learners.glm <- subset(wool.choice.learners, wool.choice.learners$PIT!=0)
-glm.wool.choice <-
-  glm(
-    wool.choice.learners.glm$Matched ~ wool.choice.learners.glm$Age + wool.choice.learners.glm$Species,
-    family = binomial(link = "logit")
-  )
-summary(glm.wool.choice)
-
-Call:
-  glm(formula = wool.choice.learners.glm$Matched ~ wool.choice.learners.glm$Age + 
-        wool.choice.learners.glm$Species, family = binomial(link = "logit"))
-# 
-# Deviance Residuals: 
-#   Min       1Q   Median       3Q      Max  
-# -1.5829  -1.0108   0.8203   0.8203   1.3537  
-# 
-# Coefficients:
-#   Estimate Std. Error z value Pr(>|z|)
-# (Intercept)                             -17.566   3956.180  -0.004    0.996
-# wool.choice.learners.glm$Agefirst.year   -1.322      1.238  -1.067    0.286
-# wool.choice.learners.glm$SpeciesGRETI    18.482   3956.180   0.005    0.996
-# 
-# (Dispersion parameter for binomial family taken to be 1)
-# 
-# Null deviance: 17.945  on 12  degrees of freedom
-# Residual deviance: 15.106  on 10  degrees of freedom
-# AIC: 21.106
-# 
-# Number of Fisher Scoring iterations: 16
 
 
 # 8) Visualization --------------------------------------------------------
