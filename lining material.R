@@ -18,7 +18,7 @@ library(gridExtra)
 
 load("gmm.spring.RData")
 # the object contains three slots:
-gmm.spring$gbi # group by indivdiual matrix
+gmm.spring$gbi # group by individual matrix
 gmm.spring$metadata
 gmm.spring$B
 
@@ -33,6 +33,7 @@ foraging_network <-
 
 dim(foraging_network)
 # 157 birds (both males and females)
+
 
 # 3) Create distance matrix ----------------------------------------------------
 
@@ -164,6 +165,69 @@ head(ILVs.combined)
 # - D1.visited-D5.visited: 0 if not visited dispenser, 1 if registered on the respective dispenser
 # - closest.dispenser: distance (in m) to the closest dispenser
 
+
+# 5.1) Double-check stability of foraging network -------------------------
+
+rows.week1 <- which(gmm.spring$metadata$Start>=210223000000 & gmm.spring$metadata$End<=210226000000)
+rows.week2 <- which(gmm.spring$metadata$Start>=210302000000 & gmm.spring$metadata$End<=210305000000)
+rows.week3 <- which(gmm.spring$metadata$Start>=210309000000 & gmm.spring$metadata$End<=210312000000)
+
+
+foragenet1 <-
+  get_network(
+    association_data = gmm.spring$gbi[rows.week1,colnames(gmm.spring$gbi) %in% ILVs.combined$PIT_f],
+    data_format = "GBI",
+    association_index = "SRI"
+  )
+
+foragenet2 <-
+  get_network(
+    association_data = gmm.spring$gbi[rows.week2,colnames(gmm.spring$gbi) %in% ILVs.combined$PIT_f],
+    data_format = "GBI",
+    association_index = "SRI"
+  )
+
+foragenet3 <-
+  get_network(
+    association_data = gmm.spring$gbi[rows.week3,colnames(gmm.spring$gbi) %in% ILVs.combined$PIT_f],
+    data_format = "GBI",
+    association_index = "SRI"
+  )
+
+library(vegan)
+
+mantel(foragenet1, foragenet2)
+
+# Mantel statistic based on Pearson's product-moment correlation 
+# 
+# Call:
+# mantel(xdis = foragenet1, ydis = foragenet2) 
+# 
+# Mantel statistic r: 0.6337 
+#       Significance: 0.001 
+# 
+# Upper quantiles of permutations (null model):
+#    90%    95%  97.5%    99% 
+# 0.0441 0.0556 0.0652 0.0871 
+# Permutation: free
+# Number of permutations: 999
+
+mantel(foragenet2, foragenet3)
+
+# Mantel statistic based on Pearson's product-moment correlation 
+# 
+# Call:
+# mantel(xdis = foragenet2, ydis = foragenet3) 
+# 
+# Mantel statistic r: 0.6497 
+#       Significance: 0.001 
+# 
+# Upper quantiles of permutations (null model):
+#    90%    95%  97.5%    99% 
+# 0.0430 0.0643 0.0788 0.0919 
+# Permutation: free
+# Number of permutations: 999
+
 # 6) NBDA - social information to use to find lining material -----------------------------------------------------------------
 # load NBDa via devtools
 #install.packages("devtools")
@@ -180,12 +244,31 @@ IDs.to.include.in.NBDA <- intersect(ILVs.combined$PIT_f, rownames(foraging_netwo
 length(IDs.to.include.in.NBDA)
 # 46 tagged females were seen at the foraging network that were also breeding in our study area
 
+# which species are these 46 females
+length(subset(ILVs.combined$Species, ILVs.combined$PIT_f %in% IDs.to.include.in.NBDA & ILVs.combined$Species=="GRETI" & !(ILVs.combined$Box %in% c("D04", "R06", "G33")))) # remove three nests that were the same females occupying neighbouring nests before breeding
+# 31 great tits
+length(subset(ILVs.combined$Species, ILVs.combined$PIT_f %in% IDs.to.include.in.NBDA & ILVs.combined$Species=="BLUTI"& !(ILVs.combined$Box %in% c("D04", "R06", "G33"))))
+# 11 blue tits
+length(subset(ILVs.combined$Species, ILVs.combined$PIT_f %in% IDs.to.include.in.NBDA & ILVs.combined$Species=="MARTI"& !(ILVs.combined$Box %in% c("D04", "R06", "G33"))))
+# 4 marsh tits
+
 # extract how many of those females have visited the dispensers
 ILVs.combined.sub <- subset(ILVs.combined, ILVs.combined$PIT_f %in% IDs.to.include.in.NBDA)
 # remove three boxes (as they were double occupations by the same females - c("D04", "R06", "G33")) 
 ILVs.combined.sub <- subset(ILVs.combined.sub, !(ILVs.combined.sub$Box %in% c("D04", "R06", "G33")))
 length(subset(ILVs.combined.sub$PIT_f, ILVs.combined.sub$D1.visited==1 | ILVs.combined.sub$D2.visited==1| ILVs.combined.sub$D3.visited==1| ILVs.combined.sub$D4.visited==1| ILVs.combined.sub$D5.visited==1))
 # [1] 21
+
+# which species?
+
+visited.disp <- unique(subset(ILVs.combined.sub$PIT_f, ILVs.combined.sub$D1.visited==1 | ILVs.combined.sub$D2.visited==1| ILVs.combined.sub$D3.visited==1| ILVs.combined.sub$D4.visited==1| ILVs.combined.sub$D5.visited==1))
+length(subset(ILVs.combined.sub$PIT_f, ILVs.combined.sub$PIT_f %in% visited.disp & ILVs.combined.sub$Species=="GRETI"))
+# 13 great tits
+length(subset(ILVs.combined.sub$PIT_f, ILVs.combined.sub$PIT_f %in% visited.disp & ILVs.combined.sub$Species=="BLUTI"))
+# 4 blue tits
+length(subset(ILVs.combined.sub$PIT_f, ILVs.combined.sub$PIT_f %in% visited.disp & ILVs.combined.sub$Species=="MARTI"))
+# 4 marsh tits
+
 
 # extract how many were breeding in nest boxes
 length(subset(ILVs.combined.sub$PIT_f, ILVs.combined.sub$Box!="no_box"))
@@ -207,6 +290,7 @@ max(visits)
 
 # we now get the two networks into the right shape - i.e. subsetting them to the 46 females we want to include
 # first the foraging network
+
 foraging.network.NBDA <- foraging_network[rownames(foraging_network) %in% IDs.to.include.in.NBDA, colnames(foraging_network) %in% IDs.to.include.in.NBDA]
 foraging.network.NBDA <- foraging.network.NBDA[order(rownames(foraging.network.NBDA)), order(colnames(foraging.network.NBDA))]
 dim(foraging.network.NBDA)
@@ -573,7 +657,6 @@ head(constraintsVectMatrix)
 
 # we run TADA with multiple diffusions
 
-
 # Now we can run TADA
 TADA.finding.all <-
   tadaAICtable(
@@ -593,6 +676,9 @@ TADA.finding.all <-
 # we can see that the top model is model 187 with an Akaike weight of 0.122
 print(TADA.finding.all@printTable)
 
+write.csv(TADA.finding.all@printTable, "AIC.table.csv")
+
+constraintsVectMatrix[187,]
 # we can extract network support via summed Akaike weights
 networksSupport(TADA.finding.all)
 
@@ -887,7 +973,6 @@ fisher
 # alternative hypothesis: greater
 
 
-
 # 8) Visualization --------------------------------------------------------
 
 # create a network with polgygons around dispenser areas
@@ -896,6 +981,7 @@ library(igraph)
 
 # for each PIT tag, extract whether it was seen at a network feeder
 col.plot <- NULL
+species.plot <- NULL
 
 for(i in rownames(foraging.network.NBDA)){
   box <- subset(ILVs.combined$Box, ILVs.combined$PIT_f==i)
@@ -915,16 +1001,23 @@ for(i in rownames(foraging.network.NBDA)){
   if(length(wool.used)==0){
     wool.used <- "none"
   }
+  species <- subset(ILVs.combined.sub$Species, ILVs.combined.sub$PIT_f==i)
+  
     col.plot[which(rownames(foraging.network.NBDA)==i)] <- wool.used
+    species.plot[which(rownames(foraging.network.NBDA)==i)] <- species
 }
 
 # reassign the correct hex codes for each colour
-col.plot[col.plot=="unknown"] <- "#9a9999" # grey
-col.plot[col.plot=="none"] <- "#faf7f7" # white
-col.plot[col.plot=="Pi"] <- "#fb0edc" # pink
-col.plot[col.plot=="O"] <- "#fdb633" # orange 
-col.plot[col.plot=="Pu"] <- "#b87be3" # purple
-col.plot[col.plot=="B"] <- "#33CCFF" # blue
+# col.plot[col.plot=="unknown"] <- "#9a9999" # grey
+# col.plot[col.plot=="none"] <- "#faf7f7" # white
+# col.plot[col.plot=="Pi"] <- "#fb0edc" # pink
+# col.plot[col.plot=="O"] <- "#fdb633" # orange 
+# col.plot[col.plot=="Pu"] <- "#b87be3" # purple
+# col.plot[col.plot=="B"] <- "#33CCFF" # blue
+
+species.plot[species.plot=="GRETI"] <- "circle"
+species.plot[species.plot=="BLUTI"] <- "square"
+species.plot[species.plot=="MARTI"] <- "triangle"
 
 
 
@@ -934,6 +1027,8 @@ g.net <- graph_from_adjacency_matrix(foraging.network.NBDA, mode = "undirected",
 E(g.net)$width <- E(g.net)$weight
 
 V(g.net)$colour <- col.plot
+
+V(g.net)$shape <- species.plot
 
 # # assign to which disepnser area(s) each bird belongs
 # # for those not breeding in boxes, we assign the dispenser they visited
@@ -953,6 +1048,17 @@ V(g.net)$colour <- col.plot
 # col.adj <- grDevices::adjustcolor(c("#a08f00","#62dab9", "#b738bd", "#7a3f63", "#c31910"), alpha=0.15)
 
 
+
+library(devtools)
+#install.packages("remotes")
+#remotes::install_github("b2slab/FELLA")
+library("FELLA")
+
+add.vertex.shape(
+  "triangle", clip = shapes("circle")$clip,
+  plot = FELLA:::mytriangle)
+
+
 png( "network.png", units="in", width=12, height=4, res=400)
 
 set.seed(4)
@@ -960,7 +1066,8 @@ igraph::plot.igraph( g.net,
       vertex.size = 8,
       edge.curved = 0.25,
       edge.color =  "#8c8989",
-      vertex.color = V(g.net)$colour,
+      vertex.color = "grey10",
+      vertex.shape = V(g.net)$shape,
       vertex.label = NA,
       vertex.frame.colour = "black",
       edge.width = E(g.net)$width*4,
